@@ -1,0 +1,16 @@
+/base/
+/dev-docker/
+/dwh/
+/flexii/
+/judo-external-hajime/
+/judo-gate/
+/judo-referee-portal/
+/judo-vysledkovy-portal/
+/tmp/
+/ucetnictvi-duel/
+/wireguard/
+/zaloha-dat/
+/.idea
+
+*.sql
+
