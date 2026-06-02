@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datový model — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px; }
+  h3 { color: #388e3c; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1b5e20; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f5f5f5; border-left: 4px solid #388e3c; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; line-height: 1.6; }
+  .note { background: #fff9c4; border-left: 4px solid #f9a825; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+  hr { border: none; border-top: 2px dashed #c8e6c9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Datový model — DWH</h1>
+
+<div class="note">
+  <strong>Databáze:</strong> PostgreSQL 17 (alternativně Oracle 18c XE)<br>
+  <strong>Schéma:</strong> <code>public</code> (core tabulky), <code>export</code> (materializované pohledy)<br>
+  <strong>Migrace:</strong> Liquibase (Hyperdrive), <code>resources/hyperdrive/structure/</code>
+</div>
+
+<h2>Klíčové tabulky</h2>
+
+<h3>Konfigurace a připojení</h3>
+<table>
+  <tr><th>Tabulka</th><th>Obsah</th></tr>
+  <tr><td><code>lookup_language</code></td><td>Jazyky aplikace (cs, en, de, ...)</td></tr>
+  <tr><td><code>source_connection</code></td><td>Připojení na zdrojové DB (host, port, db, user, šifrované heslo)</td></tr>
+  <tr><td><code>data_source</code></td><td>SQL query na zdrojové DB (name, connection_id, sql, schedule, priorita)</td></tr>
+  <tr><td><code>appuser</code></td><td>Uživatelé aplikace (login, password hash, role)</td></tr>
+  <tr><td><code>application</code></td><td>API tokeny pro REST API</td></tr>
+</table>
+
+<h3>Dataset a definice</h3>
+<table>
+  <tr><th>Tabulka</th><th>Obsah</th></tr>
+  <tr><td><code>dataset</code></td><td>Definice datové sady</td></tr>
+  <tr><td><code>dataset_part</code></td><td>Fyzická část datasetu (odpovídá jedné tabulce/struktuře)</td></tr>
+  <tr><td><code>dataset_part_definition</code></td><td>Sloupec/pole datasetu (name, data_type, required, order, ...)</td></tr>
+</table>
+
+<h3>Data (hodnoty) — největší tabulky</h3>
+<table>
+  <tr><th>Tabulka</th><th>Obsah</th></tr>
+  <tr><td><code>dataset_entity</code></td><td>Jeden datový záznam (řádek v datasetu). Status, historization flag.</td></tr>
+  <tr><td><code>dataset_values</code></td><td>Hodnoty: <code>(entity_id, def_id) → value</code> (TEXT). Miliony řádků.</td></tr>
+</table>
+
+<h3>Procesní pravidla</h3>
+<table>
+  <tr><th>Tabulka</th><th>Obsah</th></tr>
+  <tr><td><code>data_transformation</code></td><td>Pravidla transformace (before_value → after_value)</td></tr>
+  <tr><td><code>data_enrichment</code></td><td>Enrichment mapování (lookup z jiného datasetu)</td></tr>
+  <tr><td><code>data_validation</code></td><td>Validační pravidla (required, regex, format, min/max)</td></tr>
+  <tr><td><code>data_quality_rule</code></td><td>Pravidla pro detekci anomálií</td></tr>
+  <tr><td><code>publication</code></td><td>Definice cílového exportu (view, Kafka, file, ...)</td></tr>
+</table>
+
+<h3>Organizace a joby</h3>
+<table>
+  <tr><th>Tabulka</th><th>Obsah</th></tr>
+  <tr><td><code>entity_group</code></td><td>Skupina entit (logická kategorie)</td></tr>
+  <tr><td><code>entity_group_category</code></td><td>Kategorie skupin (hierarchie)</td></tr>
+  <tr><td><code>job_definition</code></td><td>Naplánovaný job (cron_expression, enabled, dataset_id)</td></tr>
+</table>
+
+<hr>
+
+<h2>Vztahy mezi tabulkami</h2>
+<pre>
+source_connection (1) ──── (N) data_source
+                                    │
+                                    ↓
+dataset_part (1) ──── (N) dataset_part_definition ──── (1) DataType
+      │
+      ↓
+dataset_entity (N) ──── (N) dataset_values
+      │                          (entity_id, def_id) → value (TEXT)
+      ↓
+dataset_entity_history (archiv po historizaci)
+
+dataset_part ──── (N) data_transformation
+dataset_part ──── (N) data_enrichment
+dataset_part ──── (N) data_validation
+dataset_part ──── (N) data_quality_rule
+dataset_part ──── (N) publication
+
+entity_group_category (1) ──── (N) entity_group
+entity_group (N) ──── (N) dataset_entity
+</pre>
+
+<hr>
+
+<h2>DataType — 9 datových typů</h2>
+<table>
+  <tr><th>Typ</th><th>Validace</th></tr>
+  <tr><td>String</td><td>Max délka, regex</td></tr>
+  <tr><td>Integer</td><td>Celé číslo, min/max</td></tr>
+  <tr><td>Float</td><td>Desetinné číslo, min/max</td></tr>
+  <tr><td>Date</td><td>Formát Y-m-d</td></tr>
+  <tr><td>DateTime</td><td>Formát datetime</td></tr>
+  <tr><td>Time</td><td>Formát času</td></tr>
+  <tr><td>Bool</td><td>true / false</td></tr>
+  <tr><td>Email</td><td>Formát emailu</td></tr>
+  <tr><td>ArrayInt</td><td>JSON pole celých čísel</td></tr>
+</table>
+
+<hr>
+
+<h2>Stavy dataset_entity</h2>
+<pre>
+new        → čerstvě importovaný záznam
+valid      → prošel základní validací
+invalid    → selhal validaci
+transformed → prošel transformacemi
+enriched   → prošel enrichmentem
+validated  → prošel kompletní validací
+published  → publikován do cíle
+locked     → zamčen (nelze editovat)
+archived   → historický záznam
+</pre>
+
+<hr>
+
+<h2>Materializované pohledy (export schéma)</h2>
+<p>Naming konvence: <code>export.mv_dataset_export_{dataset_name}_{part_name}</code></p>
+<table>
+  <tr><th>Pohled</th><th>Obsah</th></tr>
+  <tr><td>mv_dataset_export_tournaments_tournaments_main</td><td>Turnaje</td></tr>
+  <tr><td>mv_dataset_export_members_members_main</td><td>Členové</td></tr>
+  <tr><td>mv_dataset_export_clubs_clubs_main</td><td>Kluby</td></tr>
+  <tr><td>mv_dataset_export_tournament_match_tournament_match_main</td><td>Zápasy</td></tr>
+  <tr><td>mv_dataset_export_tournament_results_tournament_results_main</td><td>Výsledky</td></tr>
+</table>
+<p>Refresh provádí <code>PublicationConsumer</code> nebo příkaz <code>app:database-views-rebuild</code>.</p>
+
+<hr>
+
+<h2>Databázové migrace (Liquibase)</h2>
+<pre>
+resources/hyperdrive/
+  structure/              # Core schéma changesets (2022–2026)
+    2022-01-01-init.xml   # Iniciální schéma
+    2023-*.xml, 2024-*.xml, 2025-*.xml, 2026-*.xml
+  basic-data/             # Lookup seedy
+  customer-data/c{N}/     # Per-customer rozšíření
+  playbook.xml            # Orchestrace pořadí migration groups
+</pre>
+<p><strong>Spuštění:</strong> <code>php bin/console.php hyperdrive:start postgre</code></p>
+
+<h2>Šifrování citlivých dat</h2>
+<div class="note">
+  Hesla v <code>source_connection</code> jsou šifrována (AES). Klíč <code>iv</code> a <code>secret</code> jsou v <code>config/local.neon</code>. Dešifrování provádí <code>DataSourceService</code> za runtime.
+</div>
+
+</body>
+</html>

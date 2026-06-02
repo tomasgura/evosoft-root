@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; border-bottom: 1px solid #c5cae9; padding-bottom: 6px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f5f5f5; border-left: 4px solid #3949ab; padding: 14px; border-radius: 4px; font-size: 13px; }
+  ol li, ul li { margin: 6px 0; }
+  .qa { background: #e8eaf6; border-radius: 6px; padding: 14px 18px; margin: 12px 0; }
+  .qa strong { color: #1a237e; }
+  .step { counter-increment: steps; background: #e3f2fd; border-left: 4px solid #1565c0; padding: 10px 16px; margin: 8px 0; border-radius: 4px; }
+  .step::before { content: counter(steps) ". "; font-weight: bold; color: #1565c0; }
+  .steps { counter-reset: steps; }
+  hr { border: none; border-top: 2px dashed #c5cae9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Onboarding pro nového developera — Judo Výsledkový portál</h1>
+
+<p>Judo výsledkový portál je webová aplikace pro zobrazování výsledků judistických turnajů, profilů členů a klubů v rámci ČSJÚ. Aplikace je <strong>read-only</strong> — nezapisuje data, jen je čte z DWH a externích API.</p>
+
+<h2>Technologický stack</h2>
+<table>
+  <tr><th>Co</th><th>Kde hledat</th></tr>
+  <tr><td>PHP 8.3, Symfony 7.1</td><td><code>composer.json</code>, <code>src/</code></td></tr>
+  <tr><td>PostgreSQL read-only</td><td><code>config/packages/eda.yaml</code>, <code>src/Repository/Database/DWH.php</code></td></tr>
+  <tr><td>ORM: EDA (proprietární Evosoft)</td><td><code>src/Repository/BaseRepository.php</code></td></tr>
+  <tr><td>Frontend: Bootstrap + Stimulus + Turbo</td><td><code>assets/</code>, <code>templates/</code></td></tr>
+  <tr><td>Cache: APCu / file-based</td><td><code>src/Service/Cache/</code></td></tr>
+  <tr><td>Flexii API</td><td><code>src/Repository/External/FlexiiRepository.php</code></td></tr>
+  <tr><td>Hajime live API</td><td><code>src/Repository/External/HajimeEndpoint.php</code></td></tr>
+</table>
+
+<h2>Kde začít čtení kódu</h2>
+<ol>
+  <li><code>public/index.php</code> — entry point</li>
+  <li><code>src/Controller/TournamentsController.php</code> — nejdůležitější controller, pochopíš celý tok</li>
+  <li><code>src/Service/TournamentService.php</code> — business logika, vzor pro ostatní services</li>
+  <li><code>src/Repository/TournamentsRepository.php</code> — jak se čtou data z DWH</li>
+  <li><code>src/Repository/External/HajimeEndpoint.php</code> — jak se volá live API</li>
+  <li><code>src/Entity/Tournament/Tournament.php</code> — hlavní entita</li>
+  <li><code>src/Twig/Components/Datagrid/Datagrid.php</code> — jak funguje dynamická tabulka</li>
+</ol>
+
+<h2>Klíčové koncepty</h2>
+
+<h3>ITournamentDetailRepository</h3>
+<p>Rozhraní s dvěma implementacemi:</p>
+<ul>
+  <li><code>TournamentDetailHajimeRepository</code> — pro live turnaje (<code>is_hajime = true</code>)</li>
+  <li><code>TournamentDetailDWHRepository</code> — pro archivní turnaje</li>
+</ul>
+
+<h3>Datagrid</h3>
+<p>Dynamická tabulka načítaná přes AJAX. Konfigurace sloupce = PHP atribut <code>#[DatagridColumn(...)]</code> na DTO třídě. JS volá <code>/api/*</code> s <code>QueryParams</code>.</p>
+
+<h3>Cache</h3>
+<p>Všechna data jsou cachována. Při vývoji cache vypni:</p>
+<pre>EVO_CACHE_ENABLED=false</pre>
+
+<h3>DWH tabulky</h3>
+<p>Materializované pohledy — aplikace do nich nepíše. Názvy jsou konstanty v <code>src/Repository/Database/DWH.php</code>.</p>
+
+<h2>Kde jsou co soubory</h2>
+<table>
+  <tr><th>Hledám</th><th>Kde najdu</th></tr>
+  <tr><td>HTTP handlery</td><td><code>src/Controller/*.php</code></td></tr>
+  <tr><td>Business logiku</td><td><code>src/Service/*.php</code></td></tr>
+  <tr><td>DB dotazy</td><td><code>src/Repository/*.php</code></td></tr>
+  <tr><td>Live API volání</td><td><code>src/Repository/External/*.php</code></td></tr>
+  <tr><td>Datové modely</td><td><code>src/Entity/**/*.php</code></td></tr>
+  <tr><td>Šablony stránek</td><td><code>templates/**/*.html.twig</code></td></tr>
+  <tr><td>Reusable komponenty</td><td><code>src/Twig/Components/*.php</code> + <code>templates/components/</code></td></tr>
+  <tr><td>Frontend JS</td><td><code>assets/controllers/*.js</code></td></tr>
+  <tr><td>Překlady</td><td><code>translations/*.cs.yaml</code></td></tr>
+  <tr><td>Konfigurace</td><td><code>config/packages/*.yaml</code></td></tr>
+  <tr><td>Env proměnné</td><td><code>.env</code>, <code>.env.local</code></td></tr>
+  <tr><td>DWH konstanty</td><td><code>src/Repository/Database/DWH.php</code></td></tr>
+</table>
+
+<h2>Časté otázky</h2>
+
+<div class="qa"><strong>Q: Kde se berou data pro turnaje?</strong><br>
+Z DWH přes <code>TournamentsRepository</code>. Pro live turnaje (<code>is_hajime = true</code>) se živé zápasy/výsledky berou z Hajime API přes <code>HajimeEndpoint</code>.</div>
+
+<div class="qa"><strong>Q: Jak přidat sloupec do datagridu?</strong><br>
+Přidej vlastnost do RowDTO a oznachu ji atributem <code>#[DatagridColumn(title: 'klic.prekladu', type: 'text')]</code>. Pak přidej překlad do <code>translations/*.cs.yaml</code>.</div>
+
+<div class="qa"><strong>Q: Jak resetovat cache?</strong><br>
+<code>php bin/console cache:pool:clear cache.app</code> nebo nastav <code>EVO_CACHE_ENABLED=false</code> v <code>.env.local</code>.</div>
+
+<div class="qa"><strong>Q: Jak spustit Flexii sync ručně?</strong><br>
+<code>php bin/console app:get-tournaments</code> nebo <code>php bin/console app:get-clubs</code></div>
+
+<div class="qa"><strong>Q: Kde jsou loga klubů?</strong><br>
+<code>public/files/clubsLogo/{club_uid}.*</code></div>
+
+<div class="qa"><strong>Q: Kde jsou výsledkové soubory od pořadatelů?</strong><br>
+<code>public/files/tournaments/{tournament_uid}/</code></div>
+
+<h2>Doporučený postup pro první týden</h2>
+<div class="steps">
+  <div class="step">Přečti tuto dokumentaci celou</div>
+  <div class="step">Spusť aplikaci lokálně (viz README-lokalni-spusteni.md)</div>
+  <div class="step">Proklikej aplikaci — turnaje, detail, zápasy, výsledky, export</div>
+  <div class="step">Přečti <code>TournamentsController</code> celý od shora</div>
+  <div class="step">Sleduj request v Symfony Profileru — uvidíš DB dotazy, cache hity</div>
+  <div class="step">Zkus přidat sloupec do datagridu na sandbox branch</div>
+  <div class="step">Spusť PHPStan: <code>composer phpstan</code></div>
+</div>
+
+</body>
+</html>

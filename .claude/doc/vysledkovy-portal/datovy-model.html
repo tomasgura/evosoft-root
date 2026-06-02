@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datový model — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; border-bottom: 1px solid #c5cae9; padding-bottom: 6px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f5f5f5; border-left: 4px solid #3949ab; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; line-height: 1.7; }
+  .note { background: #fff9c4; border-left: 4px solid #f9a825; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+  hr { border: none; border-top: 2px dashed #c5cae9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Datový model — Judo Výsledkový portál</h1>
+
+<h2>Zdroje dat</h2>
+<ol>
+  <li><strong>DWH (Data Warehouse)</strong> — PostgreSQL, schéma <code>export</code>, materializované pohledy</li>
+  <li><strong>Hajime live API</strong> — REST API pro živé výsledky turnaje (JSON)</li>
+</ol>
+<div class="note">Aplikace do DWH <strong>nepíše</strong>. Veškerá data jsou read-only.</div>
+
+<h2>DWH tabulky</h2>
+<table>
+  <tr><th>Konstanta</th><th>Tabulka v DB</th><th>Obsah</th></tr>
+  <tr><td><code>DWH::TOURNAMENTS</code></td><td>mv_dataset_export_tournaments_tournaments_main</td><td>Turnaje</td></tr>
+  <tr><td><code>DWH::TOURNAMENT_MEMBERS</code></td><td>mv_dataset_export_tournament_members_tournament_members_main</td><td>Přihlášení členové turnaje</td></tr>
+  <tr><td><code>DWH::MEMBERS</code></td><td>mv_dataset_export_members_members_main</td><td>Členové ČSJÚ</td></tr>
+  <tr><td><code>DWH::CLUBS</code></td><td>mv_dataset_export_clubs_clubs_main</td><td>Kluby</td></tr>
+  <tr><td><code>DWH::MATCHES</code></td><td>mv_dataset_export_tournament_match_tournament_match_main</td><td>Zápasy</td></tr>
+  <tr><td><code>DWH::TOURNAMENT_SUBCATEGORIES</code></td><td>mv_dataset_export_tournament_subcategory_tournament_subcategory</td><td>Podkategorie turnaje</td></tr>
+  <tr><td><code>DWH::RESULTS</code></td><td>mv_dataset_export_tournament_results_tournament_results_main</td><td>Výsledky</td></tr>
+</table>
+
+<hr>
+
+<h2>Entity</h2>
+
+<h3>Tournament</h3>
+<table>
+  <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+  <tr><td>uid</td><td>string</td><td>Unikátní identifikátor</td></tr>
+  <tr><td>name</td><td>string</td><td>Název turnaje</td></tr>
+  <tr><td>description</td><td>string|null</td><td>Popis</td></tr>
+  <tr><td>type</td><td>string</td><td>Typ (MČR, pohár...)</td></tr>
+  <tr><td>status_name</td><td>string</td><td>Stav (plánovaný/probíhající/ukončený)</td></tr>
+  <tr><td>dt_start</td><td>DateTimeImmutable</td><td>Datum začátku</td></tr>
+  <tr><td>dt_end</td><td>DateTimeImmutable</td><td>Datum konce</td></tr>
+  <tr><td>club_name</td><td>string</td><td>Pořádající klub</td></tr>
+  <tr><td>address</td><td>string</td><td>Místo konání</td></tr>
+  <tr><td>director</td><td>string</td><td>Ředitel turnaje</td></tr>
+  <tr><td>is_hajime</td><td>bool</td><td>Probíhá live přes Hajime</td></tr>
+  <tr><td>is_international</td><td>bool</td><td>Mezinárodní turnaj</td></tr>
+  <tr><td>is_ranking_list</td><td>bool</td><td>Je v žebříčku</td></tr>
+</table>
+<p>Metody: <code>getState()</code>, <code>isStarted()</code>, <code>isFinished()</code>, <code>getYear()</code></p>
+
+<h3>Member</h3>
+<table>
+  <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+  <tr><td>uid</td><td>string</td><td>Unikátní identifikátor</td></tr>
+  <tr><td>csju_id</td><td>string</td><td>ID v ČSJÚ systému</td></tr>
+  <tr><td>firstname / surname / fullname</td><td>string</td><td>Jméno</td></tr>
+  <tr><td>birthyear</td><td>int</td><td>Rok narození</td></tr>
+  <tr><td>club_name</td><td>string</td><td>Název klubu</td></tr>
+  <tr><td>club_uid</td><td>string</td><td>UID klubu</td></tr>
+  <tr><td>kyu / dan</td><td>int|null</td><td>Technický stupeň</td></tr>
+  <tr><td>dt_kyu_granted / dt_dan_granted</td><td>DateTimeImmutable|null</td><td>Datum udělení</td></tr>
+</table>
+<p>Metoda: <code>getAge()</code></p>
+
+<h3>Club</h3>
+<table>
+  <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+  <tr><td>uid</td><td>string</td><td>Unikátní identifikátor</td></tr>
+  <tr><td>name / csju_name</td><td>string</td><td>Název</td></tr>
+  <tr><td>hajime_acronym</td><td>string</td><td>Zkratka pro Hajime</td></tr>
+  <tr><td>id_number</td><td>string</td><td>IČO</td></tr>
+  <tr><td>webpage / email / telephone</td><td>string|null</td><td>Kontaktní údaje</td></tr>
+  <tr><td>country</td><td>Country</td><td>Stát</td></tr>
+  <tr><td>address_main / address_correspondence</td><td>Address</td><td>Adresy</td></tr>
+  <tr><td>member_count</td><td>int</td><td>Počet členů</td></tr>
+  <tr><td>logo_url</td><td>string|null</td><td>URL loga</td></tr>
+  <tr><td>dt_upd</td><td>DateTimeImmutable</td><td>Poslední aktualizace</td></tr>
+</table>
+
+<h3>AgeCategory a SubCategory</h3>
+<table>
+  <tr><th>Entita</th><th>Klíčové vlastnosti</th><th>Metody</th></tr>
+  <tr><td>AgeCategory</td><td>id, name, description, description_short</td><td>isMale(), isFemale(), isKids(), getMaxAge(), getPriority()</td></tr>
+  <tr><td>SubCategory</td><td>id, name, gender, max_age, weight_limit</td><td>—</td></tr>
+</table>
+
+<hr>
+
+<h2>Vztahy mezi entitami</h2>
+<pre>
+Tournament
+  └── AgeCategory[]
+        └── SubCategory[]
+              ├── SpiderShuffle nebo TableShuffle  (live, z Hajime)
+              ├── TournamentMatchDTO[]              (zápasy)
+              └── CategoryResultsDTO               (výsledky)
+
+Member
+  ├── Club  (přes club_uid)
+  └── TournamentMatchDTO[]  (jako contestant)
+
+Club
+  ├── Address  (main + correspondence)
+  ├── Country
+  └── Member[]  (přes DWH)
+</pre>
+
+<hr>
+
+<h2>DTO přehled</h2>
+
+<h3>Pro datagrid</h3>
+<table>
+  <tr><th>DTO</th><th>Použití</th></tr>
+  <tr><td>TournamentRowDTO</td><td>Řádek v seznamu turnajů</td></tr>
+  <tr><td>MemberRowDTO</td><td>Řádek v seznamu členů</td></tr>
+  <tr><td>ClubRowDTO</td><td>Řádek v seznamu klubů</td></tr>
+  <tr><td>TournamentMemberRowDTO</td><td>Přihlášení na turnaj</td></tr>
+  <tr><td>TournamentCategoryRowDTO</td><td>Kategorie turnaje</td></tr>
+  <tr><td>DatagridTournamentParticipationDTO</td><td>Účast člena na turnajích</td></tr>
+  <tr><td>ClubMemberRowDTO</td><td>Člen v detailu klubu</td></tr>
+</table>
+
+<h3>Pro vyhledávání</h3>
+<table>
+  <tr><th>DTO</th><th>Pole</th></tr>
+  <tr><td>MemberSearchResultDTO</td><td>firstname, surname, club_uid, flag_url</td></tr>
+  <tr><td>TournamentSearchResultDTO</td><td>name, location, date</td></tr>
+  <tr><td>ClubSearchResultDTO</td><td>name, csju_name</td></tr>
+</table>
+
+<h3>Query objekty</h3>
+<table>
+  <tr><th>Třída</th><th>Účel</th></tr>
+  <tr><td>QueryParams</td><td>page, pageSize, filters[], sortField, sortAsc</td></tr>
+  <tr><td>QueryFilter</td><td>column, filterValue</td></tr>
+  <tr><td>EntitySetDTO</td><td>data[], itemsCount — výsledek pro stránkování</td></tr>
+</table>
+
+<h2>Poznámky</h2>
+<div class="note">
+  <ul>
+    <li>DWH tabulky jsou materializované pohledy — aktualizuje je <strong>externí ETL process</strong>, ne tato aplikace.</li>
+    <li>Loga klubů a výsledkové soubory jsou na filesystému (<code>public/files/</code>), do DWH jde jen metadata.</li>
+    <li>Živá data (Hajime) nejsou v DWH — pro probíhající turnaje se čte přímo z Hajime API.</li>
+  </ul>
+</div>
+
+</body>
+</html>

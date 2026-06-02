@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tok dat — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; }
+  h3 { color: #388e3c; }
+  pre { background: #f5f5f5; border-left: 4px solid #388e3c; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; line-height: 1.7; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1b5e20; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 7px 14px; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .step { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 14px 18px; border-radius: 4px; margin: 16px 0; }
+  .step h3 { margin-top: 0; color: #1b5e20; }
+  .flow-label { background: #1b5e20; color: #fff; padding: 3px 12px; border-radius: 4px; font-size: 13px; display: inline-block; margin-bottom: 8px; }
+  hr { border: none; border-top: 2px dashed #c8e6c9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Tok dat (ETL pipeline) — DWH</h1>
+
+<h2>Přehled: od zdroje k cíli</h2>
+<pre>
+ZDROJOVÁ DB / API / SOUBOR
+  ↓ [manuální trigger nebo cron]
+Data Source  (SQL query definice v DB)
+  ↓ RabbitMQ: dataSourceQueue
+DataSourceConsumer  — spustí query na zdrojové DB
+  ↓ RabbitMQ: dataToValuesQueue
+DataToValuesConsumer  — parsuje výsledek → dataset_values
+  ↓ RabbitMQ: transformationQueue
+TransformationConsumer  — aplikuje transformační pravidla
+  ↓ RabbitMQ: enrichmentQueue
+EnrichmentConsumer  — lookup join (enrich z jiných datasetů)
+  ↓ RabbitMQ: validationQueue
+ValidationConsumer  — kontrola formátů, povinnosti, regex
+  ↓ RabbitMQ: dataQualityQueue
+DataQualityConsumer  — detekce anomálií
+  ↓ RabbitMQ: publicationQueue
+PublicationConsumer  — export do cíle
+  ↓
+CÍL (materialized view, Kafka topic, XLSX, API)
+</pre>
+
+<h2>Způsoby spuštění (triggery)</h2>
+<table>
+  <tr><th>Způsob</th><th>Kdo</th><th>Jak</th></tr>
+  <tr><td>Manuálně z UI</td><td>Uživatel</td><td>Tlačítko „Načíst data" v Admin UI</td></tr>
+  <tr><td>Cron job</td><td>Server cron → <code>app:job-queue</code></td><td>Dle <code>cron_expression</code> v DB</td></tr>
+  <tr><td>REST API</td><td>Externe systém</td><td><code>POST /api/rest/v1/actions/get-data/{name}</code></td></tr>
+</table>
+
+<h2>Detail kroků pipeline</h2>
+
+<div class="step">
+  <h3>1. Data Source (query na zdrojové DB)</h3>
+  <p>SQL query uložena v tabulce <code>data_source</code>. DataSourceConsumer se připojí na zdrojovou DB (přes <code>source_connection</code>) a spustí query. Výsledek (raw řádky) putuje do <code>dataToValuesQueue</code>.</p>
+</div>
+
+<div class="step">
+  <h3>2. Import → DatasetValues</h3>
+  <p>DataToValuesConsumer přijme raw data. Pro každý řádek namapuje sloupce na <code>def_id</code>, vytvoří <code>dataset_entity</code> a uloží hodnoty do <code>dataset_values</code>: <code>(entity_id, def_id) → value</code>. Stav entity: <strong>new</strong> nebo <strong>updated</strong>.</p>
+</div>
+
+<div class="step">
+  <h3>3. Transformace</h3>
+  <p>TransformationConsumer načte pravidla <code>data_transformation</code>. Každé pravidlo: <code>before_value → after_value</code>. Upravené hodnoty se uloží zpět do <code>dataset_values</code>.</p>
+</div>
+
+<div class="step">
+  <h3>4. Obohacení (Enrichment)</h3>
+  <p>EnrichmentConsumer načte <code>data_enrichment</code> pravidla. Lookup join: hodnota z entity X se hledá v jiném datasetu Y → přidá hodnotu z Y jako nové def_id.</p>
+</div>
+
+<div class="step">
+  <h3>5. Validace</h3>
+  <p>ValidationConsumer kontroluje formáty, povinná pole, regex dle <code>data_validation</code> pravidel. Selhání → entita dostane stav <strong>invalid</strong>. Úspěch → stav <strong>valid</strong>.</p>
+</div>
+
+<div class="step">
+  <h3>6. Data Quality</h3>
+  <p>DataQualityConsumer detekuje anomálie, duplicity, statistické odchylky dle <code>data_quality_rule</code>. Generuje reporty, nespoléhá jen na stav entity.</p>
+</div>
+
+<div class="step">
+  <h3>7. Publikace (export)</h3>
+  <table>
+    <tr><th>Typ destinace</th><th>Co se stane</th></tr>
+    <tr><td>PostgreSQL materialized view</td><td>Refresh <code>export.mv_dataset_export_*</code></td></tr>
+    <tr><td>Oracle view</td><td>Totéž pro Oracle</td></tr>
+    <tr><td>Kafka</td><td>Publish JSON zprávy na Kafka topic</td></tr>
+    <tr><td>XLSX soubor</td><td>Generování Excel souboru do <code>www/send_to_file/</code></td></tr>
+    <tr><td>REST API (outbound)</td><td>HTTP POST na externí endpoint</td></tr>
+  </table>
+</div>
+
+<hr>
+
+<h2>Stavy dataset_entity</h2>
+<pre>
+new
+  → (import)       → valid / invalid
+      valid
+        → (transformace) → transformed
+            → (enrichment) → enriched
+                → (validace)  → validated / invalid
+                    validated → (publikace) → published
+
+invalid → (oprava) → new (recycle)
+locked  → nelze editovat
+archived → historický záznam
+</pre>
+
+<hr>
+
+<h2>Tok webového requestu (UI)</h2>
+<span class="flow-label">Browser → Latte HTML</span>
+<pre>
+Browser
+  → GET /data/dataset/detail/{id}
+  → www/index.php
+  → Bootstrap.php  (DI kontejner)
+  → Nette Application router
+  → DataModule\Presenters\DatasetPresenter::renderDetail($id)
+      → DatasetManagerService::getDataset($id)
+          → BaseRepository → EDA → PostgreSQL SELECT
+      → render('DataModule/templates/Dataset/detail.latte', [...])
+  ← HTML response
+</pre>
+
+<h2>Tok REST API requestu</h2>
+<span class="flow-label">External systém → RabbitMQ job</span>
+<pre>
+External systém
+  → POST /api/rest/v1/actions/get-data/tournament_match
+    Header: apiToken: &lt;token&gt;
+  → www/index.php → detekuje 'api/rest'
+  → Apitte Middlewares:
+      ApiKeyAuthenticationMiddleware  (ověří token)
+      LogApiMiddleware                (loguje)
+  → ActionController::getDataAction($name)
+      → ActionService::triggerImport(...)
+          → RabbitMQ: masterQueue  (publish)
+  ← JsonResponse { status: "queued", job_id: "..." }
+</pre>
+
+<h2>Tok CLI / cron</h2>
+<span class="flow-label">cron → RabbitMQ → ETL pipeline</span>
+<pre>
+Linux cron: * * * * * php bin/console.php app:job-queue
+  → JobQueueCommand::execute()
+      → Načte z DB: job_definition kde enabled=true AND cron vyšel
+      → Pro každý job → publish do jobProcessQueue
+  → (asynchronně) JobProcessConsumer → MasterConsumer → ... → publicationQueue
+</pre>
+
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px; }
+  h3 { color: #388e3c; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1b5e20; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f5f5f5; border-left: 4px solid #388e3c; padding: 14px; border-radius: 4px; font-size: 13px; }
+  ol li, ul li { margin: 6px 0; }
+  .qa { background: #e8f5e9; border-radius: 6px; padding: 14px 18px; margin: 12px 0; }
+  .qa strong { color: #1b5e20; }
+  .step { counter-increment: steps; background: #e3f2fd; border-left: 4px solid #1565c0; padding: 10px 16px; margin: 8px 0; border-radius: 4px; }
+  .step::before { content: counter(steps) ". "; font-weight: bold; color: #1565c0; }
+  .steps { counter-reset: steps; }
+  .warn { background: #fff3e0; border-left: 4px solid #e65100; padding: 10px 14px; border-radius: 4px; margin: 10px 0; }
+  hr { border: none; border-top: 2px dashed #c8e6c9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Onboarding pro nového developera — DWH</h1>
+
+<p>DWH je ETL platforma. Přijímá data z externích zdrojů, zpracovává je asynchronně přes RabbitMQ pipeline a publikuje do cílových systémů. Ostatní Evosoft aplikace (Judo výsledkový portál, ...) čtou data z materializovaných pohledů, které DWH spravuje.</p>
+
+<h2>Technologický stack</h2>
+<table>
+  <tr><th>Co</th><th>Kde hledat</th></tr>
+  <tr><td>PHP 8.3, Nette Framework 3.2+</td><td><code>composer.json</code>, <code>app/</code></td></tr>
+  <tr><td>PostgreSQL / Oracle</td><td><code>config/database/</code>, <code>config/local.neon</code></td></tr>
+  <tr><td>ORM: EDA + Dibi</td><td><code>app/DataModule/Repository/</code></td></tr>
+  <tr><td>RabbitMQ (AMQP)</td><td><code>config/rabbitmq.neon</code>, <code>app/DataModule/RabbitMq/</code></td></tr>
+  <tr><td>Kafka</td><td><code>config/local.neon</code> → sekce publications</td></tr>
+  <tr><td>Liquibase (DB migrace)</td><td><code>resources/hyperdrive/</code></td></tr>
+  <tr><td>REST API (Apitte)</td><td><code>app/Rest/</code></td></tr>
+  <tr><td>CLI</td><td><code>bin/console.php</code></td></tr>
+</table>
+
+<h2>Kde začít čtení kódu</h2>
+<ol>
+  <li><code>www/index.php</code> — entry point</li>
+  <li><code>app/Bootstrap.php</code> — DI kontejner</li>
+  <li><code>config/common.neon</code> — hlavní konfigurace</li>
+  <li><code>config/rabbitmq.neon</code> — RabbitMQ topologie</li>
+  <li><code>app/DataModule/Presenters/DatasetPresenter.php</code> — hlavní UI presenter</li>
+  <li><code>app/DataModule/RabbitMq/Consumer/MasterConsumer.php</code> — vstup ETL pipeline</li>
+  <li><code>app/DataModule/Service/DataSourceService/</code> — volání zdrojové DB</li>
+  <li><code>app/DataModule/Service/PublicationService/</code> — publikace dat</li>
+  <li><code>resources/hyperdrive/structure/2022-01-01-init.xml</code> — DB schéma</li>
+</ol>
+
+<h2>Klíčové koncepty</h2>
+
+<h3>ETL Pipeline přes RabbitMQ</h3>
+<p>Celý datový tok (import → transformace → validace → publikace) běží <strong>asynchronně</strong> přes RabbitMQ fronty. Žádný krok nevolá další krok přímo — vždy přes zprávu do další fronty. Consumery běží jako background procesy (24/7).</p>
+
+<h3>EAV datový model</h3>
+<p><code>dataset_values</code> má Entity-Attribute-Value strukturu: pro každý záznam je N řádků (N = počet sloupců datasetu). Flexibilní schéma, ale JOINy jsou nákladné.</p>
+
+<h3>Nette Framework (ne Symfony)</h3>
+<table>
+  <tr><th>Aspekt</th><th>Nette</th><th>Symfony</th></tr>
+  <tr><td>HTTP handlery</td><td>Presenters</td><td>Controllers</td></tr>
+  <tr><td>Šablony</td><td>Latte</td><td>Twig</td></tr>
+  <tr><td>Konfigurace</td><td>NEON</td><td>YAML</td></tr>
+  <tr><td>DI kontejner</td><td>Nette DI</td><td>Symfony DI</td></tr>
+</table>
+
+<div class="warn">
+  <strong>Known issue:</strong> <code>autoCreate: true</code> v RabbitMQ konfiguraci způsobuje TCP spojení při každém HTTP requestu. Výpadek RabbitMQ = 500 error všude.
+</div>
+
+<h2>Kde jsou co soubory</h2>
+<table>
+  <tr><th>Hledám</th><th>Kde najdu</th></tr>
+  <tr><td>HTTP handlery (web)</td><td><code>app/DataModule/Presenters/</code>, <code>app/AdminModule/Presenters/</code></td></tr>
+  <tr><td>HTTP handlery (API)</td><td><code>app/Rest/V1/Controllers/</code></td></tr>
+  <tr><td>Business logiku</td><td><code>app/DataModule/Service/</code></td></tr>
+  <tr><td>ETL consumery</td><td><code>app/DataModule/RabbitMq/Consumer/</code></td></tr>
+  <tr><td>DB dotazy</td><td><code>app/DataModule/Repository/</code></td></tr>
+  <tr><td>Datové entity</td><td><code>app/DataModule/Entity/</code></td></tr>
+  <tr><td>Šablony</td><td><code>app/DataModule/templates/</code></td></tr>
+  <tr><td>DB migrace</td><td><code>resources/hyperdrive/structure/</code></td></tr>
+  <tr><td>Customer data</td><td><code>resources/hyperdrive/customer-data/c{N}/</code></td></tr>
+</table>
+
+<h2>Časté otázky</h2>
+
+<div class="qa"><strong>Q: Jak spustit import ručně?</strong><br>
+Admin UI → tlačítko „Načíst data", nebo <code>POST /api/rest/v1/actions/get-data/{name}</code>.</div>
+
+<div class="qa"><strong>Q: Jak spustit consumery lokálně?</strong><br>
+<code>make rabbitmq</code> (spustí 9 consumerů) nebo jednotlivě:<br>
+<code>php bin/console.php rabbitmq:staticConsumer masterConsumer 5000</code></div>
+
+<div class="qa"><strong>Q: Jak spustit DB migrace?</strong><br>
+<code>php bin/console.php hyperdrive:start postgre</code><br>
+Reset celé DB (DESTRUKTIVNÍ!): <code>make reload-postgre</code></div>
+
+<div class="qa"><strong>Q: Kde se logují chyby?</strong><br>
+<code>log/exception.log</code> a Tracy HTML dumpy v <code>log/exception*.html</code></div>
+
+<div class="qa"><strong>Q: Co je Hyperdrive?</strong><br>
+Evosoft wrapper nad Liquibase (Java). Spouští XML changesets na DB. Nutné mít Java runtime.</div>
+
+<h2>Doporučený postup pro první týden</h2>
+<div class="steps">
+  <div class="step">Přečti tuto dokumentaci (architektura, datový tok, datový model)</div>
+  <div class="step">Spusť aplikaci lokálně (<code>README-lokalni-spusteni.md</code>)</div>
+  <div class="step">Projdi Admin UI — podívej se na konfiguraci datasetu</div>
+  <div class="step">Přečti <code>MasterConsumer</code> a sleduj chain consumerů</div>
+  <div class="step">Spusť ručně import jednoho datasetu a sleduj logy</div>
+  <div class="step">Přečti XML changeset <code>2022-01-01-init.xml</code></div>
+  <div class="step">Spusť PHPStan: <code>make phpstan</code></div>
+  <div class="step">Přečti <code>analýza.md</code> v rootu — case study tournament_match datasetu</div>
+</div>
+
+</body>
+</html>

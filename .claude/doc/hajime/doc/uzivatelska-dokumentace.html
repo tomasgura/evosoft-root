@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hajime – Uživatelská dokumentace</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222; background: #f5f6fa; }
+    a { color: #1a73e8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .layout { display: flex; min-height: 100vh; }
+    nav { width: 260px; min-width: 220px; background: #1e2a38; color: #cfd8e3; padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+    nav .brand { padding: 0 24px 20px; border-bottom: 1px solid #2e3e50; margin-bottom: 12px; }
+    nav .brand h1 { font-size: 22px; color: #fff; font-weight: 700; }
+    nav .brand p { font-size: 12px; color: #7a93ac; margin-top: 4px; }
+    nav ul { list-style: none; }
+    nav ul li a { display: block; padding: 8px 24px; color: #cfd8e3; font-size: 13px; transition: background 0.15s; }
+    nav ul li a:hover, nav ul li a.active { background: #2e3e50; color: #fff; text-decoration: none; }
+    nav ul li.section { padding: 16px 24px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #5a7a94; font-weight: 600; }
+
+    main { flex: 1; padding: 40px 48px; max-width: 960px; }
+    .page-title { margin-bottom: 8px; }
+    .page-title h1 { font-size: 32px; font-weight: 700; color: #1e2a38; }
+    .page-title .subtitle { color: #666; font-size: 14px; margin-top: 4px; }
+    .version-badge { display: inline-block; background: #e8f0fe; color: #1a73e8; font-size: 12px; padding: 2px 10px; border-radius: 12px; margin-top: 8px; }
+
+    section { margin-top: 48px; padding-top: 12px; border-top: 2px solid #e8ecf0; }
+    h2 { font-size: 22px; color: #1e2a38; margin-bottom: 16px; }
+    h3 { font-size: 17px; color: #2c3e50; margin: 24px 0 10px; }
+    h4 { font-size: 15px; color: #34495e; margin: 18px 0 8px; font-weight: 600; }
+    p { margin-bottom: 12px; color: #333; }
+    ul, ol { margin: 0 0 14px 20px; }
+    li { margin-bottom: 4px; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th { background: #1e2a38; color: #fff; text-align: left; padding: 10px 14px; font-weight: 600; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e4e8ee; }
+    tr:nth-child(even) td { background: #f8f9fc; }
+    tr:hover td { background: #eef2ff; }
+
+    /* Callouts */
+    .callout { padding: 14px 18px; border-radius: 6px; margin: 16px 0; font-size: 14px; }
+    .callout.info { background: #e8f4fd; border-left: 4px solid #1a73e8; }
+    .callout.warning { background: #fff8e1; border-left: 4px solid #f59e0b; }
+    .callout.danger { background: #fdecea; border-left: 4px solid #e53e3e; }
+    .callout strong { color: #1e2a38; }
+
+    /* Code */
+    pre { background: #1e2a38; color: #e2e8f0; padding: 18px 22px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 16px 0; line-height: 1.5; }
+    code { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; background: #eef2ff; padding: 1px 5px; border-radius: 3px; color: #1a73e8; }
+
+    /* Workflow steps */
+    .workflow { counter-reset: wf-step; margin: 20px 0; }
+    .workflow-step { display: flex; gap: 16px; margin-bottom: 20px; }
+    .workflow-step .step-num { counter-increment: wf-step; flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #1e2a38; color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .workflow-step .step-body h4 { margin: 0 0 6px; font-size: 15px; color: #1e2a38; }
+    .workflow-step .step-body p { margin: 0; font-size: 14px; color: #555; }
+
+    /* User type cards */
+    .user-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin: 16px 0; }
+    .user-card { background: #fff; border: 1px solid #e4e8ee; border-radius: 8px; padding: 16px; }
+    .user-card .role { font-size: 13px; font-weight: 700; color: #1e2a38; margin-bottom: 6px; }
+    .user-card .url { font-size: 12px; color: #1a73e8; font-family: monospace; background: #f0f4ff; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
+    .user-card .desc { font-size: 13px; color: #555; }
+
+    /* Section number badge */
+    .sec-badge { display: inline-block; background: #1e2a38; color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-right: 8px; vertical-align: middle; }
+
+    footer { margin-top: 60px; padding: 20px 0; border-top: 1px solid #e4e8ee; color: #888; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar navigation -->
+  <nav>
+    <div class="brand">
+      <h1>Hajime</h1>
+      <p>Uživatelská dokumentace</p>
+    </div>
+    <ul>
+      <li class="section">Přehled</li>
+      <li><a href="#sec1">1. K čemu systém slouží</a></li>
+      <li><a href="#sec2">2. Typy uživatelů</a></li>
+      <li class="section">Moduly</li>
+      <li><a href="#sec3">3. Admin – správa turnaje</a></li>
+      <li><a href="#sec4">4. Scale – vážení</a></li>
+      <li><a href="#sec5">5. Scoreboard</a></li>
+      <li><a href="#sec6">6. Infopanel</a></li>
+      <li class="section">Průvodce</li>
+      <li><a href="#sec7">7. Workflow turnaje</a></li>
+      <li><a href="#sec8">8. Validace a omezení</a></li>
+      <li><a href="#sec9">9. Přehled tlačítek</a></li>
+      <li><a href="#sec10">10. Chyby a řešení</a></li>
+    </ul>
+  </nav>
+
+  <!-- Main content -->
+  <main>
+    <div class="page-title">
+      <h1>Uživatelská dokumentace</h1>
+      <div class="subtitle">Hajime – Systém pro správu judo turnajů</div>
+      <span class="version-badge">Verze 2026-05-31</span>
+    </div>
+
+    <!-- 1 -->
+    <section id="sec1">
+      <h2><span class="sec-badge">1</span>K čemu systém slouží</h2>
+      <p><strong>Hajime</strong> je webová aplikace pro komplexní správu judo turnajů. Pokrývá celý životní cyklus akce – od přihlášení závodníků až po zobrazení finálních výsledků.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Funkce</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Přihlašování závodníků</td><td>Synchronizace z externího systému ČSJÚ přes Flexii API, správa přihlášek do kategorií</td></tr>
+            <tr><td>Vážení</td><td>Evidence naměřené váhy na váhách (Scale modul), schválení přihlášky do hmotnostní kategorie</td></tr>
+            <tr><td>Generování pavouků</td><td>Automatické vytváření soutěžních skupin a turnajových pavouků dle zvoleného draw systému</td></tr>
+            <tr><td>Řízení tatami</td><td>Přidělování zápasů na zápasiště, sledování pořadí zápasů</td></tr>
+            <tr><td>Výsledky v reálném čase</td><td>Scoreboard a Infopanel zobrazují aktuální stav zápasů a výsledků</td></tr>
+            <tr><td>REST API</td><td>Integrace s externími systémy (mobilní aplikace, portál ČSJÚ)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="sec2">
+      <h2><span class="sec-badge">2</span>Typy uživatelů a přihlášení</h2>
+      <div class="user-cards">
+        <div class="user-card">
+          <div class="role">Admin</div>
+          <div class="url">/sign/in</div>
+          <div class="desc">Plná správa turnaje – kategorie, závodníci, tatami, výsledky</div>
+        </div>
+        <div class="user-card">
+          <div class="role">Scale operátor</div>
+          <div class="url">/scale/sign/in</div>
+          <div class="desc">Vážení závodníků, schvalování přihlášek</div>
+        </div>
+        <div class="user-card">
+          <div class="role">Scoreboard</div>
+          <div class="url">URL s tokenem</div>
+          <div class="desc">Zobrazení výsledků a skóre zápasů v reálném čase</div>
+        </div>
+        <div class="user-card">
+          <div class="role">Infopanel</div>
+          <div class="url">URL s tokenem</div>
+          <div class="desc">Informační tabule průběhu turnaje</div>
+        </div>
+        <div class="user-card">
+          <div class="role">Superadmin</div>
+          <div class="url">Speciální přihlášení</div>
+          <div class="desc">Cross-turnajový přístup, správa adminů</div>
+        </div>
+      </div>
+
+      <h3>Přihlášení admina</h3>
+      <ol>
+        <li>Otevřít <code>/sign/in</code></li>
+        <li>Zadat přihlašovací jméno a heslo</li>
+        <li>Alternativně: přihlášení přes <strong>Flexii SSO</strong> (enterprise účet)</li>
+        <li>Po přihlášení je uživatel přesměrován do administrace turnaje</li>
+      </ol>
+
+      <h3>Scoreboard a Infopanel</h3>
+      <p>Přihlášení probíhá přímo přes URL s tokenem, který admin vygeneruje v nastavení turnaje.</p>
+      <p>Příklad: <code>http://judo.loc/infopanel/homepage/default/1</code></p>
+    </section>
+
+    <!-- 3 -->
+    <section id="sec3">
+      <h2><span class="sec-badge">3</span>Modul Admin – správa turnaje</h2>
+
+      <h3>3.1 Přehled turnaje (Homepage)</h3>
+      <p>Po přihlášení se zobrazí přehledová stránka s aktuálním stavem turnaje, kategorií a rychlými akcemi.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Akce</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Vybrat turnaj</td><td>Přepnutí na jiný spravovaný turnaj</td></tr>
+            <tr><td>Nastavení turnaje</td><td>Správa kategorií, tatami a vah</td></tr>
+            <tr><td>Závodníci</td><td>Seznam přihlášených závodníků</td></tr>
+            <tr><td>Tatami</td><td>Správa zápasiště</td></tr>
+            <tr><td>Výsledky</td><td>Výsledkové listiny</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.2 Nastavení turnaje (TournamentSettings)</h3>
+
+      <h4>Věkové kategorie</h4>
+      <p>Definují věkové skupiny závodníků (např. „Kadeti muži"). Každá věková kategorie má vlastní pravidla pro délku zápasu a golden score.</p>
+
+      <h4>Hmotnostní kategorie</h4>
+      <p>Definují váhové rozsahy (např. „-60 kg"). Přiřazují se k věkovým kategoriím.</p>
+
+      <h4>Tatami a váhy</h4>
+      <div class="callout info">
+        <strong>Omezení:</strong> Maximální počet tatami na turnaj je <strong>10</strong>, maximální počet vah je <strong>20</strong>.
+      </div>
+      <p>V nastavení lze vygenerovat přihlašovací hesla pro scale operátory, scoreboard a infopanel a vytisknout je jako PDF.</p>
+
+      <h3>3.3 Závodníci (Competitors)</h3>
+      <p>Dvě záložky: přihlášení závodníci (stav schválení) a zvážení závodníci (naměřená váha, přiřazená subcategorie). Filtrování podle jména, klubu a kategorie.</p>
+
+      <h3>3.4 Kategorie a generování pavouka</h3>
+      <p>Po kliknutí na hmotnostní kategorii se zobrazí závodníci, stav kategorie a subcategorie. Generování pavouka je dostupné po zvážení a schválení závodníků.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pole formuláře</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Draw system</td><td>Typ turnajového pavouka (Table, Spider…)</td></tr>
+            <tr><td>Rozdělit podle pohlaví</td><td>Vytvoří separátní skupiny pro muže a ženy</td></tr>
+            <tr><td>Repechage</td><td>Povolí opravné kolo pro poražené finalisty</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.5 Tatami – řízení zápasiště</h3>
+      <div class="callout warning">
+        <strong>Důležité:</strong> Zápasy musí být nejprve <strong>spuštěny</strong>, než je lze přiřadit na tatami.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tlačítko</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Spustit zápas</td><td>Aktivuje zápas a umožní jeho přiřazení</td></tr>
+            <tr><td>Přiřadit zápas</td><td>Přidá zápas do fronty na vybrané tatami</td></tr>
+            <tr><td>Přesunout zápas</td><td>Přeřazení na jiné tatami</td></tr>
+            <tr><td>Odebrat ze seznamu</td><td>Odebrání zápasu z fronty tatami</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="sec4">
+      <h2><span class="sec-badge">4</span>Modul Scale – vážení závodníků</h2>
+      <div class="workflow">
+        <div class="workflow-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Přihlášení</h4>
+            <p>Scale operátor se přihlásí na <code>/scale/sign/in</code> jménem a heslem.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Vyhledat závodníka</h4>
+            <p>Zadat příjmení nebo ČSJÚ identifikátor. Systém zobrazí seznam shod.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Načíst závodníka</h4>
+            <p>Načtení dat závodníka z Flexii API nebo z lokální databáze.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Zadat váhu a kategorii</h4>
+            <p>Vyplnit naměřenou váhu (kg) a vybrat věkovou a hmotnostní kategorii. Systém ověří, zda váha odpovídá toleranci kategorie.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Potvrdit vážení</h4>
+            <p>Kliknout <strong>„Uložit váhu"</strong>. Závodník je označen jako zvážený a schválený. Zobrazí se potvrzovací zpráva.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="sec5">
+      <h2><span class="sec-badge">5</span>Modul Scoreboard – výsledková tabule</h2>
+      <p>Určen pro zobrazení na obrazovce v zápasiště. Zobrazuje živé výsledky (ippon, wazari, shido), čas zápasu a automaticky se aktualizuje.</p>
+      <p>Přihlášení: URL s tokenem generovaným adminem v nastavení tatami.</p>
+      <p>Příklad URL: <code>http://judo.loc/scoreboard/homepage/default/[token]</code></p>
+    </section>
+
+    <!-- 6 -->
+    <section id="sec6">
+      <h2><span class="sec-badge">6</span>Modul Infopanel – informační tabule</h2>
+      <p>Určen pro informační obrazovky. Zobrazuje přehled probíhajících kategorií, pořadí na zápaništích a výsledky dokončených kategorií.</p>
+      <p>Přihlášení: <code>http://judo.loc/infopanel/homepage/default/[id]</code></p>
+      <p>Admin může přidávat a konfigurovat infopanely přes <code>/infopanel/manage/</code>.</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="sec7">
+      <h2><span class="sec-badge">7</span>Workflow od začátku do konce turnaje</h2>
+      <div class="workflow">
+        <div class="workflow-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Příprava turnaje (Admin)</h4>
+            <p>Synchronizace závodníků z ČSJÚ. Nastavení věkových a hmotnostních kategorií. Přidání tatami a vah. Vygenerování přihlašovacích hesel.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Vážení (Scale operátor)</h4>
+            <p>Závodníci se dostaví na váhu. Operátor vyhledá závodníka, naměří váhu, vybere kategorii a potvrdí vážení.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Generování pavouka (Admin)</h4>
+            <p>Po uzavření přihlašování admin spustí generování párovacích skupin (Shuffle). Zkontroluje vygenerované zápasy a případně upraví.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Průběh turnaje (Admin + Tatami)</h4>
+            <p>Admin spouští zápasy a přiřazuje je na tatami. Výsledky zápasů jsou zadávány průběžně a zobrazeny na scoreboardu a infopanelu.</p>
+          </div>
+        </div>
+        <div class="workflow-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Výsledky</h4>
+            <p>Zobrazení finálního pořadí závodníků. Export výsledků.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="sec8">
+      <h2><span class="sec-badge">8</span>Validace a omezení</h2>
+
+      <h3>Závodník</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pole</th><th>Pravidlo</th></tr></thead>
+          <tbody>
+            <tr><td>Jméno a příjmení</td><td>Povinné</td></tr>
+            <tr><td>Datum narození</td><td>Povinné; musí odpovídat věkové kategorii (age_from/age_to)</td></tr>
+            <tr><td>Pohlaví</td><td>Povinné (muž / žena)</td></tr>
+            <tr><td>Klub</td><td>Povinné</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Vážení</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Validace</th><th>Pravidlo</th></tr></thead>
+          <tbody>
+            <tr><td>Váha</td><td>Povinná, kladné číslo (kg)</td></tr>
+            <tr><td>Tolerance váhy</td><td>Musí být v rozsahu kategorie ± tolerance nastavená v CategoryAge</td></tr>
+            <tr><td>Závodník</td><td>Musí být přihlášen do turnaje</td></tr>
+            <tr><td>Duplicita</td><td>Nelze vážit vícekrát ve stejné kategorii</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Tatami a váhy (systémová omezení)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Omezení</th><th>Hodnota</th></tr></thead>
+          <tbody>
+            <tr><td>Maximální počet tatami</td><td>10 na turnaj</td></tr>
+            <tr><td>Maximální počet vah</td><td>20 na turnaj</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Pavouk (Shuffle)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Validace</th><th>Pravidlo</th></tr></thead>
+          <tbody>
+            <tr><td>Generování pavouka</td><td>Závodníci musí být zváženi a schváleni</td></tr>
+            <tr><td>Uzamčená kategorie</td><td>Nelze znovu generovat po uzamčení</td></tr>
+            <tr><td>Přiřazení na tatami</td><td>Zápas musí být ve stavu „spuštěn"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="sec9">
+      <h2><span class="sec-badge">9</span>Přehled tlačítek a akcí</h2>
+
+      <h3>Admin – Kategorie</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tlačítko / Akce</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Nová kategorie</td><td>Formulář pro přidání hmotnostní kategorie</td></tr>
+            <tr><td>Generovat pavouk</td><td>Spustí párovací algoritmus</td></tr>
+            <tr><td>Nastavení pavouka</td><td>Formulář výběru draw systému a parametrů</td></tr>
+            <tr><td>Zobrazit pavouk</td><td>Vizuální zobrazení zápasů</td></tr>
+            <tr><td>Uzamknout kategorii</td><td>Uzavře přihlašování (nevratná akce)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Admin – SubCategory</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tlačítko / Akce</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Sloučit skupiny</td><td>Sloučení více subkategorií do jedné</td></tr>
+            <tr><td>Rozdělit skupiny</td><td>Oddělení závodníků do separátních skupin</td></tr>
+            <tr><td>Odeslat e-mail</td><td>Notifikace závodníkům v kategorii</td></tr>
+            <tr><td>Zobrazit výsledky</td><td>Výsledková tabulka subcategorie</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Scale – vážení</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tlačítko / Akce</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Hledat</td><td>Vyhledání závodníka podle příjmení / ČSJÚ ID</td></tr>
+            <tr><td>Načíst ze Flexii</td><td>Import závodníka z externího systému</td></tr>
+            <tr><td>Uložit váhu</td><td>Uloží naměřenou váhu a schválí přihlášku</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>TournamentSettings</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tlačítko / Akce</th><th>Popis</th></tr></thead>
+          <tbody>
+            <tr><td>Přidat věkovou kategorii</td><td>Formulář pro novou věkovou kategorii</td></tr>
+            <tr><td>Přidat hmotnostní kategorii</td><td>Formulář pro novou váhovou kategorii</td></tr>
+            <tr><td>Přidat tatami</td><td>Přidá zápasiště</td></tr>
+            <tr><td>Přidat váhu</td><td>Přidá váhu pro vážení závodníků</td></tr>
+            <tr><td>Tisknout hesla</td><td>PDF s přihlašovacími údaji pro scale/scoreboard/infopanel</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="sec10">
+      <h2><span class="sec-badge">10</span>Možné chyby a jejich řešení</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Chyba / Situace</th><th>Příčina</th><th>Řešení</th></tr></thead>
+          <tbody>
+            <tr><td>„Nedostatečná oprávnění" po přihlášení</td><td>Přihlášen nesprávný typ účtu</td><td>Přihlásit se správným typem účtu (<code>/sign/in</code> vs <code>/scale/sign/in</code>)</td></tr>
+            <tr><td>Závodník se nezobrazuje</td><td>Není přihlášen do turnaje nebo synchronizace neproběhla</td><td>Zkontrolovat synchronizaci s Flexii / ČSJÚ</td></tr>
+            <tr><td>„Závodník již byl zvážen"</td><td>Duplicitní záznam vážení</td><td>Zkontrolovat záznamy v SubCategory</td></tr>
+            <tr><td>Váha mimo kategorii</td><td>Naměřená váha překračuje toleranci</td><td>Upravit toleranci v CategoryAge nebo zařadit do správné kategorie</td></tr>
+            <tr><td>Pavouk nelze generovat</td><td>Závodníci nejsou zváženi/schváleni nebo kategorie je uzamčena</td><td>Dokončit vážení, zkontrolovat stav kategorií</td></tr>
+            <tr><td>Zápas nelze přiřadit na tatami</td><td>Zápas není „spuštěn"</td><td>Nejprve kliknout „Spustit zápas"</td></tr>
+            <tr><td>Chyba 500 bez detailu</td><td>Debug mód je vypnutý</td><td>Zapnout Tracy debug nebo zkontrolovat server log</td></tr>
+            <tr><td>Scoreboard/Infopanel – přihlášení selhává</td><td>Prošlý nebo neplatný token v URL</td><td>Admin vygeneruje nové heslo v nastavení tatami</td></tr>
+            <tr><td>Flexii API nedostupné</td><td>Výpadek externího systému</td><td>Závodníka zadat ručně nebo počkat na obnovení spojení</td></tr>
+            <tr><td>Nelze načíst závodníka ze Flexii</td><td>Závodník nemá aktivní účet nebo nesprávné ID</td><td>Ověřit ID závodníka v systému ČSJÚ</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p>Hajime – Uživatelská dokumentace &nbsp;|&nbsp; Vygenerováno: 2026-05-31</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

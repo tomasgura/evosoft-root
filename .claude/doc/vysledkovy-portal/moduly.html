@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hlavní moduly — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; border-bottom: 1px solid #c5cae9; padding-bottom: 6px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .section { margin-bottom: 40px; }
+  .badge { display: inline-block; background: #3949ab; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 12px; margin-left: 8px; vertical-align: middle; }
+  hr { border: none; border-top: 2px dashed #c5cae9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Hlavní moduly — Judo Výsledkový portál</h1>
+
+<div class="section">
+<h2>Controllers <span class="badge">entry pointy</span></h2>
+
+<h3>TournamentsController</h3>
+<table>
+  <tr><th>Metoda</th><th>Route</th><th>Popis</th></tr>
+  <tr><td><code>index</code></td><td>/tournaments/{state}</td><td>Seznam turnajů (archive/active/current)</td></tr>
+  <tr><td><code>detail</code></td><td>/tournaments/uid/{uid}</td><td>Detail turnaje</td></tr>
+  <tr><td><code>matches</code></td><td>/tournaments/uid/{uid}/matches</td><td>Live zápasy</td></tr>
+  <tr><td><code>tables</code></td><td>/tournaments/uid/{uid}/tables</td><td>Shuffle tabulky</td></tr>
+  <tr><td><code>results</code></td><td>/tournaments/uid/{uid}/results</td><td>Výsledky</td></tr>
+  <tr><td><code>statistics</code></td><td>/tournaments/uid/{uid}/statistics</td><td>Statistiky turnaje</td></tr>
+  <tr><td><code>videos</code></td><td>/tournaments/uid/{uid}/videos</td><td>Videa</td></tr>
+  <tr><td><code>datagridData</code></td><td>/api/tournament</td><td>JSON data pro datagrid</td></tr>
+  <tr><td><code>signedUpMembersData</code></td><td>/api/tournament/{uid}/members</td><td>Přihlášení členové</td></tr>
+  <tr><td><code>categoriesData</code></td><td>/api/tournament/{uid}/categories</td><td>Kategorie turnaje</td></tr>
+  <tr><td><code>searchByName</code></td><td>/api/search/tournament</td><td>Fulltext vyhledávání</td></tr>
+</table>
+
+<h3>MembersController</h3>
+<table>
+  <tr><th>Metoda</th><th>Route</th><th>Popis</th></tr>
+  <tr><td><code>index</code></td><td>/members</td><td>Seznam členů</td></tr>
+  <tr><td><code>detail</code></td><td>/members/{uid}</td><td>Detail člena</td></tr>
+  <tr><td><code>datagridData</code></td><td>/api/member</td><td>JSON data pro datagrid</td></tr>
+  <tr><td><code>tournamentParticipationData</code></td><td>/api/member/{uid}/tournaments</td><td>Historie turnajů člena</td></tr>
+  <tr><td><code>searchByName</code></td><td>/api/search/member</td><td>Vyhledávání členů</td></tr>
+  <tr><td><code>searchByNameAndTournament</code></td><td>/api/search/memberbytournament</td><td>Filtrované vyhledávání</td></tr>
+</table>
+
+<h3>ClubsController</h3>
+<table>
+  <tr><th>Metoda</th><th>Route</th><th>Popis</th></tr>
+  <tr><td><code>index</code></td><td>/clubs</td><td>Seznam klubů</td></tr>
+  <tr><td><code>detail</code></td><td>/clubs/{uid}</td><td>Detail klubu</td></tr>
+  <tr><td><code>datagridData</code></td><td>/api/clubs</td><td>JSON data pro datagrid</td></tr>
+  <tr><td><code>datagridMemberData</code></td><td>/api/clubs/{uid}/members</td><td>Členové klubu</td></tr>
+  <tr><td><code>searchByName</code></td><td>/api/search/club</td><td>Vyhledávání klubů</td></tr>
+</table>
+
+<h3>StatisticsController</h3>
+<table>
+  <tr><th>Metoda</th><th>Route</th><th>Popis</th></tr>
+  <tr><td><code>index</code></td><td>/statistics</td><td>Globální statistiky</td></tr>
+</table>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>Services <span class="badge">business logika</span></h2>
+
+<h3>TournamentService</h3>
+<ul>
+  <li><code>getTournamentsDatagridData()</code> — data pro seznam turnajů</li>
+  <li><code>getTournamentByUID()</code> — detail turnaje</li>
+  <li><code>getTournamentAgeCategories()</code>, <code>getSubcategories()</code> — kategorie</li>
+  <li><code>getTournamentMatches()</code>, <code>getTatamiMatches()</code> — zápasy</li>
+  <li><code>getResultsForAgeCategory()</code>, <code>getResultsForSubcategory()</code> — výsledky</li>
+  <li><code>getTournamentVideos()</code> — videa</li>
+  <li><code>getResultFiles()</code> — soubory výsledků</li>
+</ul>
+
+<h3>MemberService</h3>
+<ul>
+  <li><code>getMembersDatagridData()</code></li>
+  <li><code>getMemberByUID()</code></li>
+  <li><code>getMemberParticipationStatistics()</code></li>
+  <li><code>getMemberParticipatedTournamentsData()</code></li>
+</ul>
+
+<h3>ClubService</h3>
+<ul>
+  <li><code>getClubsDatagridData()</code></li>
+  <li><code>getClubByUID()</code></li>
+</ul>
+
+<h3>MatchService</h3>
+<ul>
+  <li><code>getTournamentMatches()</code></li>
+  <li><code>getMemberMatches()</code></li>
+  <li>Statistiky matchů</li>
+</ul>
+
+<h3>HajimeService</h3>
+<ul>
+  <li><code>getTournamentSubcategoryShuffle()</code> — live data z Hajime API</li>
+</ul>
+
+<h3>SearchService</h3>
+<ul>
+  <li><code>searchMembersByName()</code></li>
+  <li><code>searchTournamentsByName()</code></li>
+  <li><code>searchClubsByName()</code></li>
+</ul>
+
+<h3>ExportService</h3>
+<ul>
+  <li><code>exportResultsToPdf()</code> — generuje PDF přes mPDF</li>
+  <li><code>exportResultsToXlsx()</code> — generuje XLSX přes PhpSpreadsheet</li>
+  <li>Tmp soubory ukládá do <code>var/tmp/</code></li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>Repositories <span class="badge">přístup k datům</span></h2>
+
+<h3>Interní (DWH / PostgreSQL)</h3>
+<table>
+  <tr><th>Repository</th><th>DWH tabulka</th><th>Klíčové metody</th></tr>
+  <tr><td>TournamentsRepository</td><td>mv_dataset_export_tournaments_tournaments_main</td><td>getDatagridData, getTournament, searchTournamentsByName</td></tr>
+  <tr><td>MemberRepository</td><td>mv_dataset_export_members_members_main</td><td>getMember, getDatagridData, searchMembersByName</td></tr>
+  <tr><td>ClubRepository</td><td>mv_dataset_export_clubs_clubs_main</td><td>getClub, getDatagridData, searchClubsByName</td></tr>
+  <tr><td>MatchRepository</td><td>mv_dataset_export_tournament_match_tournament_match_main</td><td>getTournamentMatches, getMemberMatches</td></tr>
+  <tr><td>CountryRepository</td><td>—</td><td>getCountries, getCountryByCode</td></tr>
+</table>
+
+<h3>Externí API</h3>
+<table>
+  <tr><th>Repository</th><th>API</th><th>Klíčové metody</th></tr>
+  <tr><td>FlexiiRepository</td><td>Flexii API</td><td>getTournamentsFromFlexii, saveClubLogoFile, saveTournamentResultFile</td></tr>
+  <tr><td>HajimeEndpoint</td><td>Hajime live API</td><td>getSubcategoryJSON, getShuffleJSON, getMatchesJSON, getResultsJSON</td></tr>
+  <tr><td>TournamentDetailHajimeRepository</td><td>Hajime (ITournamentDetailRepository)</td><td>getAgeCategories, getSubcategories, getMatches, getResultsForAgeCategory</td></tr>
+  <tr><td>TournamentDetailDWHRepository</td><td>DWH (ITournamentDetailRepository)</td><td>stejné rozhraní, čte z databáze</td></tr>
+</table>
+<p><strong>Interface <code>ITournamentDetailRepository</code></strong> umožňuje přepínání mezi live (Hajime) a archivními (DWH) daty bez změny v Service vrstvě.</p>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>CLI Commands <span class="badge">cron joby</span></h2>
+
+<h3><code>app:get-tournaments</code></h3>
+<ul>
+  <li>Stáhne seznam turnajů z Flexii API</li>
+  <li>Zkontroluje <code>dt_upd_attributes</code> oproti lokálnímu stavu</li>
+  <li>Stáhne nové výsledkové soubory při změně</li>
+  <li>Ukládá do <code>public/files/tournaments/{tournament_uid}/</code></li>
+</ul>
+
+<h3><code>app:get-clubs</code></h3>
+<ul>
+  <li>Stáhne seznam klubů z Flexii API</li>
+  <li>Zkontroluje loga klubů, při změně stáhne nová</li>
+  <li>Ukládá do <code>public/files/clubsLogo/</code></li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>Entity a DTO</h2>
+
+<h3>Hlavní entity</h3>
+<table>
+  <tr><th>Entita</th><th>Klíčové vlastnosti</th><th>Metody</th></tr>
+  <tr><td>Tournament</td><td>53 properties: uid, name, status, dt_start, dt_end, club, is_hajime…</td><td>getState(), isStarted(), isFinished(), getYear()</td></tr>
+  <tr><td>Member</td><td>uid, csju_id, jméno, birthyear, klub, kyu, dan</td><td>getAge()</td></tr>
+  <tr><td>Club</td><td>uid, název, IČO, web, email, telefon, logo, adresa</td><td>—</td></tr>
+  <tr><td>AgeCategory</td><td>id, name, description</td><td>isMale(), isFemale(), isKids(), getMaxAge(), getPriority()</td></tr>
+  <tr><td>SubCategory</td><td>váha, pohlaví, věk</td><td>—</td></tr>
+</table>
+</div>
+
+</body>
+</html>

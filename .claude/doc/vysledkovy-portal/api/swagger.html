@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API dokumentace — Judo Výsledkový portál</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+<style>
+  body { margin: 0; }
+  #swagger-ui .topbar { background: #1a237e; }
+  #swagger-ui .topbar-wrapper img { display: none; }
+  #swagger-ui .topbar-wrapper::after { content: "Judo Výsledkový portál — API"; color: #fff; font-size: 18px; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+const spec = {
+  openapi: "3.0.3",
+  info: {
+    title: "Judo Výsledkový portál API",
+    description: "Interní REST API pro datové gridy a vyhledávání. Všechna data jsou read-only. Vrací JSON.",
+    version: "1.0.0",
+    contact: {
+      name: "Evosoft",
+      email: "info@evosoft.cz"
+    }
+  },
+  servers: [
+    { url: "http://judo-portal.loc", description: "Lokální vývoj" },
+    { url: "https://vysledky.judobrno.cz", description: "Produkce (příklad)" }
+  ],
+  tags: [
+    { name: "Tournaments", description: "Turnaje" },
+    { name: "Members", description: "Zápasnické" },
+    { name: "Clubs", description: "Kluby" },
+    { name: "Search", description: "Vyhledávání (autocomplete)" }
+  ],
+  paths: {
+
+    "/api/tournament": {
+      get: {
+        tags: ["Tournaments"],
+        summary: "Data pro datagrid turnajů",
+        description: "Vrací stránkovaný seznam turnajů filtrovaný a seřazený dle QueryParams.",
+        parameters: [
+          {
+            name: "queryData",
+            in: "query",
+            required: true,
+            description: "JSON string s parametry datagridu",
+            schema: { type: "string", example: '{"page":1,"pageSize":25,"filters":[],"sortField":"dt_start","sortAsc":false}' }
+          },
+          {
+            name: "tournament_states",
+            in: "query",
+            required: false,
+            description: "Čárkou oddělené stavy: started, planned, closed",
+            schema: { type: "string", example: "started,planned" }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TournamentDatagridResponse" },
+                example: {
+                  data: [
+                    {
+                      uid: "T-2024-001",
+                      name: "Mistrovství ČR juniorů",
+                      type: "MČR",
+                      dt_start: "2024-03-15",
+                      dt_end: "2024-03-16",
+                      club_name: "JC Praha",
+                      address: "Praha, Sportovní hala",
+                      is_international: false,
+                      is_ranking_list: true,
+                      status_name: "planned"
+                    }
+                  ],
+                  itemsCount: 42,
+                  countText: "Nalezeno 42 výsledků"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/tournament/{tournament_uid}/members": {
+      get: {
+        tags: ["Tournaments"],
+        summary: "Přihlášení členové turnaje",
+        parameters: [
+          { name: "tournament_uid", in: "path", required: true, schema: { type: "string" } },
+          { name: "queryData", in: "query", required: true, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GenericDatagridResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/tournament/{tournament_uid}/categories": {
+      get: {
+        tags: ["Tournaments"],
+        summary: "Kategorie turnaje",
+        parameters: [
+          { name: "tournament_uid", in: "path", required: true, schema: { type: "string" } },
+          { name: "queryData", in: "query", required: true, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GenericDatagridResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/member": {
+      get: {
+        tags: ["Members"],
+        summary: "Data pro datagrid zápasnických",
+        parameters: [
+          {
+            name: "queryData",
+            in: "query",
+            required: true,
+            schema: { type: "string", example: '{"page":1,"pageSize":25,"filters":[],"sortField":"surname","sortAsc":true}' }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MemberDatagridResponse" },
+                example: {
+                  data: [
+                    {
+                      uid: "M-12345",
+                      csju_id: "CZ12345",
+                      fullname: "Jan Novák",
+                      birthyear: 2000,
+                      club_name: "JC Praha",
+                      kyu: null,
+                      dan: 1
+                    }
+                  ],
+                  itemsCount: 1250,
+                  countText: "Nalezeno 1 250 výsledků"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/member/{uid}/tournaments": {
+      get: {
+        tags: ["Members"],
+        summary: "Turnajová účast člena",
+        description: "Historie turnajů, kterých se člen zúčastnil.",
+        parameters: [
+          { name: "uid", in: "path", required: true, schema: { type: "string" } },
+          { name: "queryData", in: "query", required: true, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GenericDatagridResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/clubs": {
+      get: {
+        tags: ["Clubs"],
+        summary: "Data pro datagrid klubů",
+        parameters: [
+          {
+            name: "queryData",
+            in: "query",
+            required: true,
+            schema: { type: "string", example: '{"page":1,"pageSize":25,"filters":[],"sortField":"name","sortAsc":true}' }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ClubDatagridResponse" },
+                example: {
+                  data: [
+                    {
+                      uid: "C-100006",
+                      name: "JC Praha",
+                      csju_name: "Judo Club Praha",
+                      member_count: 85,
+                      country_code: "CZ"
+                    }
+                  ],
+                  itemsCount: 120,
+                  countText: "Nalezeno 120 výsledků"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/clubs/{clubUID}/members": {
+      get: {
+        tags: ["Clubs"],
+        summary: "Členové klubu",
+        parameters: [
+          { name: "clubUID", in: "path", required: true, schema: { type: "string" } },
+          { name: "queryData", in: "query", required: true, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GenericDatagridResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/search/tournament": {
+      get: {
+        tags: ["Search"],
+        summary: "Vyhledávání turnajů (autocomplete)",
+        parameters: [
+          {
+            name: "name",
+            in: "query",
+            required: true,
+            description: "Hledaný název (min. 2 znaky)",
+            schema: { type: "string", example: "Mistrovství" }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/TournamentSearchResult" }
+                },
+                example: [
+                  { uid: "T-2024-001", name: "Mistrovství ČR juniorů", location: "Praha", date: "15.03.2024" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/search/member": {
+      get: {
+        tags: ["Search"],
+        summary: "Vyhledávání zápasnických (autocomplete)",
+        parameters: [
+          {
+            name: "name",
+            in: "query",
+            required: true,
+            description: "Hledané jméno (min. 2 znaky)",
+            schema: { type: "string", example: "Novák" }
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 10 }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/MemberSearchResult" }
+                },
+                example: [
+                  { uid: "M-12345", firstname: "Jan", surname: "Novák", club_uid: "C-100006", flag_url: "/images/flags/cz.svg" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/search/memberbytournament": {
+      get: {
+        tags: ["Search"],
+        summary: "Vyhledávání zápasnických přihlášených na konkrétní turnaj",
+        parameters: [
+          { name: "name", in: "query", required: true, schema: { type: "string" } },
+          { name: "tournament_uid", in: "query", required: true, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/MemberSearchResult" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/search/club": {
+      get: {
+        tags: ["Search"],
+        summary: "Vyhledávání klubů (autocomplete)",
+        parameters: [
+          { name: "name", in: "query", required: true, schema: { type: "string", example: "Praha" } }
+        ],
+        responses: {
+          "200": {
+            description: "Úspěch",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/ClubSearchResult" }
+                },
+                example: [
+                  { uid: "C-100006", name: "JC Praha", csju_name: "Judo Club Praha" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+
+  },
+
+  components: {
+    schemas: {
+
+      QueryParams: {
+        type: "object",
+        description: "Parametry pro datagrid (předávají se jako JSON string v queryData)",
+        properties: {
+          page: { type: "integer", default: 1, description: "Číslo stránky" },
+          pageSize: { type: "integer", default: 25, description: "Počet záznamů na stránku" },
+          filters: {
+            type: "array",
+            items: { $ref: "#/components/schemas/QueryFilter" },
+            description: "Pole filtrů"
+          },
+          sortField: { type: "string", nullable: true, description: "Název sloupce pro řazení" },
+          sortAsc: { type: "boolean", nullable: true, description: "true = ASC, false = DESC" }
+        }
+      },
+
+      QueryFilter: {
+        type: "object",
+        properties: {
+          column: { type: "string", description: "Název sloupce" },
+          filterValue: { type: "string", description: "Hledaná hodnota" }
+        },
+        required: ["column", "filterValue"]
+      },
+
+      GenericDatagridResponse: {
+        type: "object",
+        properties: {
+          data: { type: "array", items: { type: "object" } },
+          itemsCount: { type: "integer", description: "Celkový počet záznamů (pro stránkování)" },
+          countText: { type: "string", description: "Textový popis počtu (lokalizovaný)" }
+        },
+        required: ["data", "itemsCount", "countText"]
+      },
+
+      TournamentDatagridResponse: {
+        type: "object",
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/TournamentRowDTO" }
+          },
+          itemsCount: { type: "integer" },
+          countText: { type: "string" }
+        }
+      },
+
+      TournamentRowDTO: {
+        type: "object",
+        properties: {
+          uid: { type: "string" },
+          name: { type: "string" },
+          type: { type: "string" },
+          dt_start: { type: "string", format: "date" },
+          dt_end: { type: "string", format: "date" },
+          club_name: { type: "string" },
+          address: { type: "string" },
+          status_name: { type: "string", enum: ["planned", "started", "closed"] },
+          is_international: { type: "boolean" },
+          is_ranking_list: { type: "boolean" },
+          is_hajime: { type: "boolean" }
+        }
+      },
+
+      MemberDatagridResponse: {
+        type: "object",
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/MemberRowDTO" }
+          },
+          itemsCount: { type: "integer" },
+          countText: { type: "string" }
+        }
+      },
+
+      MemberRowDTO: {
+        type: "object",
+        properties: {
+          uid: { type: "string" },
+          csju_id: { type: "string" },
+          fullname: { type: "string" },
+          birthyear: { type: "integer" },
+          club_name: { type: "string" },
+          club_uid: { type: "string" },
+          kyu: { type: "integer", nullable: true },
+          dan: { type: "integer", nullable: true }
+        }
+      },
+
+      ClubDatagridResponse: {
+        type: "object",
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ClubRowDTO" }
+          },
+          itemsCount: { type: "integer" },
+          countText: { type: "string" }
+        }
+      },
+
+      ClubRowDTO: {
+        type: "object",
+        properties: {
+          uid: { type: "string" },
+          name: { type: "string" },
+          csju_name: { type: "string" },
+          member_count: { type: "integer" },
+          country_code: { type: "string" }
+        }
+      },
+
+      TournamentSearchResult: {
+        type: "object",
+        properties: {
+          uid: { type: "string" },
+          name: { type: "string" },
+          location: { type: "string" },
+          date: { type: "string" }
+        }
+      },
+
+      MemberSearchResult: {
+        type: "object",
+        properties: {
+          uid: { type: "string" },
+          firstname: { type: "string" },
+          surname: { type: "string" },
+          club_uid: { type: "string" },
+          flag_url: { type: "string", nullable: true }
+        }
+      },
+
+      ClubSearchResult: {
+        type: "object",
+        properties: {
+          uid: { type: "string" },
+          name: { type: "string" },
+          csju_name: { type: "string" }
+        }
+      }
+
+    }
+  }
+};
+
+SwaggerUIBundle({
+  spec: spec,
+  dom_id: '#swagger-ui',
+  presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+  layout: "BaseLayout",
+  deepLinking: true,
+  defaultModelsExpandDepth: 1,
+  defaultModelExpandDepth: 2
+});
+</script>
+</body>
+</html>

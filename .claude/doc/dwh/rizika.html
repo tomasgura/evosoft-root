@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riziková místa — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1b5e20; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .risk { border-radius: 6px; padding: 16px 20px; margin: 20px 0; }
+  .high { background: #ffebee; border-left: 5px solid #c62828; }
+  .medium { background: #fff8e1; border-left: 5px solid #e65100; }
+  .low { background: #f1f8e9; border-left: 5px solid #558b2f; }
+  .badge-high { background: #c62828; color: #fff; border-radius: 4px; padding: 2px 10px; font-size: 12px; }
+  .badge-med { background: #e65100; color: #fff; border-radius: 4px; padding: 2px 10px; font-size: 12px; }
+  .badge-low { background: #558b2f; color: #fff; border-radius: 4px; padding: 2px 10px; font-size: 12px; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>Riziková místa — DWH</h1>
+
+<h2>Přehled</h2>
+<table>
+  <tr><th>#</th><th>Oblast</th><th>Závažnost</th><th>Popis</th></tr>
+  <tr><td>1</td><td>RabbitMQ autoCreate</td><td><span class="badge-high">Vysoká</span></td><td>TCP spojení při každém requestu</td></tr>
+  <tr><td>2</td><td>PHP Notice při shutdown</td><td><span class="badge-med">Střední</span></td><td>Symptom RabbitMQ problému</td></tr>
+  <tr><td>3</td><td>Chybějící DLQ</td><td><span class="badge-med">Střední</span></td><td>Selhaná zpráva → nekonečná smyčka</td></tr>
+  <tr><td>4</td><td>Proprietární EDA ORM</td><td><span class="badge-med">Střední</span></td><td>Bez veřejné dokumentace</td></tr>
+  <tr><td>5</td><td>Kafka bez autentizace</td><td><span class="badge-med">Střední</span></td><td>Žádné ověření v interní síti</td></tr>
+  <tr><td>6</td><td>Šifrovací klíče v config</td><td><span class="badge-med">Střední</span></td><td>Klíče v souboru místo v secrets manageru</td></tr>
+  <tr><td>7</td><td>Výkon dataset_values</td><td><span class="badge-med">Střední</span></td><td>EAV struktura — miliony řádků</td></tr>
+  <tr><td>8</td><td>Chybějící testy</td><td><span class="badge-high">Vysoká</span></td><td>ETL pipeline bez integračních testů</td></tr>
+  <tr><td>9</td><td>Tmp soubory</td><td><span class="badge-low">Nízká</span></td><td>Automatické nečištění</td></tr>
+  <tr><td>10</td><td>Hyperdrive DROP procedura</td><td><span class="badge-high">Vysoká</span></td><td>DROP SCHEMA CASCADE — destruktivní</td></tr>
+</table>
+
+<h2>Detail rizik</h2>
+
+<div class="risk high">
+  <h3>1. RabbitMQ autoCreate: true <span class="badge-high">Vysoká</span></h3>
+  <p><strong>Popis:</strong> <code>autoCreate: true</code> způsobuje TCP spojení s RabbitMQ při <strong>každém HTTP requestu</strong> — i tam, kde frontu vůbec nepotřebuje.</p>
+  <p><strong>Dopad:</strong> Výpadek RabbitMQ = 500 error na všech stránkách aplikace.</p>
+  <p><strong>Řešení:</strong></p>
+  <ol>
+    <li>Změnit <code>autoCreate: false</code> v <code>config/rabbitmq.neon</code></li>
+    <li>Fronty deklarovat jednorázově přes <code>rabbitmq:declareQueuesAndExchanges</code></li>
+    <li>Přidat health check endpoint pro RabbitMQ</li>
+  </ol>
+</div>
+
+<div class="risk high">
+  <h3>8. Chybějící automatizované testy <span class="badge-high">Vysoká</span></h3>
+  <p><strong>Popis:</strong> ETL pipeline, consumers a services nejsou pokryty integračními testy.</p>
+  <p><strong>Dopad:</strong> Regrese v ETL logice nejsou automaticky detekovány.</p>
+  <p><strong>Řešení:</strong> Přidat integrační testy pro: DataSourceService, ValidationService, PublicationService, RabbitMQ consumer flow.</p>
+</div>
+
+<div class="risk high">
+  <h3>10. Hyperdrive DROP procedura <span class="badge-high">Vysoká</span></h3>
+  <p><strong>Popis:</strong> <code>resources/hyperdrive/procedure/drop-postgre.sql</code> obsahuje <code>DROP SCHEMA CASCADE</code>. Dostupná jako příkaz <code>hyperdrive:procedure dropPostgre</code>.</p>
+  <p><strong>Dopad:</strong> Nechtěné spuštění = ztráta <strong>všech dat</strong>.</p>
+  <p><strong>Řešení:</strong> Přidat <code>--force</code> flag, env check (blokovat na produkci), omezit přístup.</p>
+</div>
+
+<div class="risk medium">
+  <h3>3. Chybějící Dead Letter Queue <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> Trvale selhávající zpráva se requeue bez limitu pokusů → consumer se zacyklí.</p>
+  <p><strong>Řešení:</strong> Nakonfigurovat DLQ pro každou frontu, přidat <code>x-max-retries</code>.</p>
+</div>
+
+<div class="risk medium">
+  <h3>6. Šifrovací klíče v config souboru <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> AES klíče (<code>iv</code> + <code>secret</code>) pro šifrování hesel zdrojových DB jsou v textovém souboru <code>config/local.neon</code>.</p>
+  <p><strong>Dopad:</strong> Kompromitace serveru = kompromitace všech zdrojových DB hesel.</p>
+  <p><strong>Řešení:</strong> Přesunout klíče do environment proměnných nebo HashiCorp Vault.</p>
+</div>
+
+<div class="risk medium">
+  <h3>7. Výkon dataset_values (EAV) <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> EAV struktura: pro každý záznam je N řádků (N = počet sloupců). Miliony entit = desítky milionů řádků.</p>
+  <p><strong>Řešení:</strong> Indexy na <code>(entity_id, def_id)</code>, pravidelný VACUUM/ANALYZE.</p>
+</div>
+
+<div class="risk medium">
+  <h3>5. Kafka bez autentizace <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> Kafka brokeři nemají nastavenou autentizaci (SASL/SSL) ve výchozím nastavení.</p>
+  <p><strong>Řešení:</strong> Nakonfigurovat SASL autentizaci na produkci.</p>
+</div>
+
+<div class="risk low">
+  <h3>9. Tmp soubory <span class="badge-low">Nízká</span></h3>
+  <p><strong>Popis:</strong> <code>www/send_to_file/</code> a <code>www/temp_files/</code> se automaticky nemaže.</p>
+  <p><strong>Řešení:</strong> Cron job pro mazání starých souborů.</p>
+</div>
+
+<h2>Doporučená prioritizace</h2>
+<table>
+  <tr><th>Priorita</th><th>Akce</th></tr>
+  <tr><td>1</td><td>Opravit RabbitMQ autoCreate: true → false</td></tr>
+  <tr><td>2</td><td>Přidat DLQ pro RabbitMQ fronty</td></tr>
+  <tr><td>3</td><td>Chránit Hyperdrive DROP proceduru</td></tr>
+  <tr><td>4</td><td>Přidat integrační testy pro ETL pipeline</td></tr>
+  <tr><td>5</td><td>Přesunout šifrovací klíče do env nebo Vault</td></tr>
+  <tr><td>6</td><td>Cron job pro čištění tmp souborů</td></tr>
+  <tr><td>7</td><td>Zkontrolovat indexy na dataset_values</td></tr>
+  <tr><td>8</td><td>Kafka autentizace na produkci</td></tr>
+</table>
+
+</body>
+</html>

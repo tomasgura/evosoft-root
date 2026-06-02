@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architektura — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th { background: #1a237e; color: #fff; padding: 10px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 8px 14px; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  pre { background: #f5f5f5; border-left: 4px solid #3949ab; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .box { background: #e8eaf6; border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<h1>Architektura — Judo Výsledkový portál</h1>
+
+<h2>Přehled</h2>
+<table>
+  <tr><th>Položka</th><th>Hodnota</th></tr>
+  <tr><td>Framework</td><td>Symfony 7.1</td></tr>
+  <tr><td>PHP</td><td>8.3+</td></tr>
+  <tr><td>Databáze</td><td>PostgreSQL (přes vlastní ORM EDA)</td></tr>
+  <tr><td>Šablony</td><td>Twig 3.10</td></tr>
+  <tr><td>Frontend</td><td>Bootstrap 5.3.3 + Stimulus + Turbo</td></tr>
+  <tr><td>Cachování</td><td>APCu / file-based (AppCacheService)</td></tr>
+</table>
+
+<h2>Architekturní vzor</h2>
+<pre>
+REQUEST
+  ↓
+[Routing] — attribute-based (PHP atributy na metodách controllerů)
+  ↓
+[Controller] — HTTP handlery (5 hlavních + ErrorController)
+  ↓
+[Service Layer] — business logika (8 služeb)
+  ↓
+[Repository Layer] — přístup k datům
+  ├── DWH (PostgreSQL přes EDA)
+  ├── Flexii API (FlexiiRepository)
+  └── Hajime API (HajimeEndpoint)
+  ↓
+[Cache Layer] — AppCacheService (APCu nebo file-based)
+  ↓
+[Entity / DTO] — datové modely (53 souborů)
+  ↓
+[Response]
+  ├── Twig rendering (30+ komponent)
+  ├── JsonResponse (API endpointy)
+  └── BinaryFileResponse (soubory ke stažení)
+</pre>
+
+<h2>Framework a technologie</h2>
+
+<h3>Symfony 7.1</h3>
+<ul>
+  <li>Attribute-based routing — žádné YAML/XML routes pro controllery</li>
+  <li>Dependency Injection přes autowire + autoconfigure</li>
+  <li>Symfony UX: TwigComponent, Stimulus Bridge, Turbo</li>
+</ul>
+
+<h3>ORM: EDA (Evosoft Data Access)</h3>
+<ul>
+  <li>Proprietární ORM/query builder od Evosoft</li>
+  <li>PostgreSQL driver</li>
+  <li>Flow builder API pro SQL dotazy</li>
+  <li>Konfigurace: <code>config/packages/eda.yaml</code></li>
+</ul>
+
+<h3>Cachování</h3>
+<ul>
+  <li>Wrapper: <code>AppCacheService</code> → <code>Cache\CacheService</code></li>
+  <li>Backendy: APCu (web) / file-based (CLI)</li>
+  <li>Namespace: <code>CacheRecord::NAMESPACE</code></li>
+  <li>Expirační časy konfigurovatelné přes <code>.env</code></li>
+</ul>
+
+<h3>Frontend stack</h3>
+<table>
+  <tr><th>Knihovna</th><th>Verze</th><th>Účel</th></tr>
+  <tr><td>Bootstrap</td><td>5.3.3</td><td>CSS framework</td></tr>
+  <tr><td>Stimulus</td><td>—</td><td>Reaktivní JS komponenty</td></tr>
+  <tr><td>Turbo</td><td>8.0</td><td>SPA-like navigace bez full page reload</td></tr>
+  <tr><td>Tom Select</td><td>2.3</td><td>Rozšířené selectboxy</td></tr>
+  <tr><td>Tempus Dominus</td><td>6.9.11</td><td>DateTime picker</td></tr>
+  <tr><td>AssetMapper</td><td>Symfony</td><td>Správa frontend závislostí (bez Webpacku)</td></tr>
+</table>
+
+<h2>Adresářová struktura</h2>
+<pre>
+judo-vysledkovy-portal/
+├── src/
+│   ├── Attribute/          # Vlastní PHP atributy (DatagridColumn)
+│   ├── Command/            # CLI příkazy (cron joby)
+│   ├── Controller/         # HTTP controllery
+│   ├── Entity/             # Entity a DTO
+│   │   ├── Club/
+│   │   ├── Member/
+│   │   ├── Tournament/
+│   │   ├── DTO/
+│   │   └── Hajime/
+│   ├── Enum/               # Enumerace
+│   ├── Exceptions/         # Vlastní výjimky
+│   ├── Helpers/            # Pomocné třídy
+│   ├── Repository/         # Data access layer
+│   │   ├── External/       # Integrace s externími API
+│   │   └── Tournament/
+│   ├── Service/            # Business logika
+│   │   └── Cache/
+│   ├── Twig/               # Twig komponenty a filtry
+│   │   ├── Components/
+│   │   └── Filters/
+│   └── Kernel.php
+├── config/
+│   ├── packages/           # Konfigurace balíčků
+│   ├── routes/
+│   ├── bundles.php
+│   ├── routes.yaml
+│   └── services.yaml
+├── templates/              # Twig šablony
+├── assets/                 # Frontend zdroje (SCSS, JS)
+├── public/                 # Web root
+├── translations/           # i18n (YAML, čeština)
+├── var/                    # Cache, logy, tmp
+└── resources/
+    ├── docker/
+    └── scripts/
+</pre>
+
+<h2>Dependency Injection</h2>
+<div class="box">
+  <ul>
+    <li><strong>Autowire: enabled</strong> — services se injektují automaticky podle typů</li>
+    <li><strong>Autoconfigure: enabled</strong> — tagy se přiřazují automaticky</li>
+    <li>Services jsou <code>readonly</code> tam kde je to možné</li>
+    <li>Rozhraní <code>ITournamentDetailRepository</code> se přepíná mezi implementacemi (DWH vs Hajime) dle konfigurace</li>
+  </ul>
+</div>
+
+<h2>Počty komponent</h2>
+<table>
+  <tr><th>Typ</th><th>Počet</th></tr>
+  <tr><td>PHP souborů v src/</td><td>~128</td></tr>
+  <tr><td>Entity / DTO</td><td>53</td></tr>
+  <tr><td>Services</td><td>8 + AppCacheService</td></tr>
+  <tr><td>Controllers</td><td>5 + ErrorController</td></tr>
+  <tr><td>Repositories</td><td>10+ (vč. externích)</td></tr>
+  <tr><td>Twig komponent</td><td>30+</td></tr>
+  <tr><td>CLI Commands</td><td>2</td></tr>
+  <tr><td>Custom Exceptions</td><td>6</td></tr>
+  <tr><td>Enums</td><td>2</td></tr>
+</table>
+
+</body>
+</html>

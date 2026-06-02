@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integrace — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; border-bottom: 1px solid #c5cae9; padding-bottom: 6px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f5f5f5; border-left: 4px solid #3949ab; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; }
+  .warn { background: #fff3e0; border-left: 4px solid #e65100; padding: 12px 16px; border-radius: 4px; margin: 12px 0; }
+  .info { background: #e3f2fd; border-left: 4px solid #1565c0; padding: 12px 16px; border-radius: 4px; margin: 12px 0; }
+  hr { border: none; border-top: 2px dashed #c5cae9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Externí integrace — Judo Výsledkový portál</h1>
+
+<h2>Přehled</h2>
+<table>
+  <tr><th>Integrace</th><th>Typ</th><th>Směr</th><th>Účel</th></tr>
+  <tr><td>Flexii API</td><td>REST HTTP</td><td>Pull</td><td>Turnaje, kluby, loga, výsledkové soubory</td></tr>
+  <tr><td>Hajime API</td><td>REST HTTP</td><td>Pull (live)</td><td>Live výsledky, losování, zápasy</td></tr>
+  <tr><td>PostgreSQL DWH</td><td>DB</td><td>Pull (read-only)</td><td>Archivní data</td></tr>
+  <tr><td>mPDF</td><td>Knihovna</td><td>Generování</td><td>Export výsledků do PDF</td></tr>
+  <tr><td>PhpSpreadsheet</td><td>Knihovna</td><td>Generování</td><td>Export výsledků do XLSX</td></tr>
+  <tr><td>Mailer</td><td>Symfony</td><td>(připraveno)</td><td>Emaily — zatím nevyužito</td></tr>
+</table>
+
+<hr>
+
+<h2>1. Flexii API</h2>
+<p><strong>Třída:</strong> <code>src/Repository/External/FlexiiRepository.php</code><br>
+<strong>Konfigurace:</strong> <code>config/packages/flexii_connector.yaml</code></p>
+
+<h3>Environment proměnné</h3>
+<pre>
+FLX_CONNECT_API_URL=https://...
+FLX_CONNECT_API_TOKEN=...
+FLX_CONNECT_API_DEBUG=0
+FLX_CONNECT_CRYPTO_ENABLED=1
+FLX_CONNECT_CRYPTO_IV=...
+FLX_CONNECT_CRYPTO_SECRET=...
+</pre>
+
+<h3>Co se stahuje</h3>
+<table>
+  <tr><th>Metoda</th><th>Popis</th></tr>
+  <tr><td><code>getTournamentsFromFlexii()</code></td><td>Seznam turnajů</td></tr>
+  <tr><td><code>getClubsFromFlexii()</code></td><td>Seznam klubů</td></tr>
+  <tr><td><code>getClubLogoFromFlexiiIfUpdated($uid)</code></td><td>Logo klubu (jen při změně)</td></tr>
+  <tr><td><code>getTournamentResultFilesFromFlexiiIfUpdated($uid)</code></td><td>Výsledkové soubory turnaje</td></tr>
+</table>
+
+<div class="info">Synchronizace běží přes CLI command (cron), ne za runtime requestu. Porovnávají se <code>dt_upd_attributes</code> z API vs. timestamp lokálního souboru.</div>
+
+<hr>
+
+<h2>2. Hajime API</h2>
+<p><strong>Třída:</strong> <code>src/Repository/External/HajimeEndpoint.php</code><br>
+<strong>Service:</strong> <code>src/Service/HajimeService.php</code><br>
+<strong>Env:</strong> <code>HAJIME_URL</code></p>
+
+<h3>Endpointy</h3>
+<table>
+  <tr><th>Endpoint</th><th>Metoda</th><th>Popis</th></tr>
+  <tr><td>/api/open/tournament/{uid}/subcategory</td><td>getSubcategoryJSON()</td><td>Věkové kategorie</td></tr>
+  <tr><td>/api/open/tournament/{uid}/subcategory-shuffle/{id}</td><td>getShuffleJSON()</td><td>Losovací tabulka</td></tr>
+  <tr><td>/api/open/tournament/{uid}/subcategory-matches/{id}</td><td>getMatchesJSON()</td><td>Live zápasy</td></tr>
+  <tr><td>/api/open/tournament/{uid}/subcategory-results/{id}</td><td>getResultsJSON()</td><td>Výsledky podkategorie</td></tr>
+  <tr><td>/api/open/tournament/{uid}/results/{agecategory_id}</td><td>getAgeCategoryResultsJSON()</td><td>Výsledky věkové kategorie</td></tr>
+</table>
+
+<div class="warn"><strong>SSL verifikace je vypnuta</strong> (<code>setSslVerifyHost(false)</code>, <code>setSslVerifyPeer(false)</code>) — integrace je určena pro interní síť.</div>
+
+<div class="info">
+  Interface <code>ITournamentDetailRepository</code> má dvě implementace:
+  <ul>
+    <li><strong>TournamentDetailHajimeRepository</strong> — pro live turnaje (čte z Hajime API)</li>
+    <li><strong>TournamentDetailDWHRepository</strong> — pro archivní turnaje (čte z DWH)</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>3. PostgreSQL DWH</h2>
+<p><strong>ORM:</strong> EDA (Evosoft Data Access)<br>
+<strong>Konfigurace:</strong> <code>config/packages/eda.yaml</code><br>
+<strong>Přístup:</strong> Read-only (SELECT)</p>
+
+<h3>Environment proměnné</h3>
+<pre>
+DATABASE_NAME=...
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=...
+DATABASE_PASSWORD=...
+</pre>
+
+<div class="info">Tabulky jsou materializované pohledy — refresh zajišťuje <strong>externí ETL</strong>. Aplikace do DWH nepíše.</div>
+
+<hr>
+
+<h2>4. Export souborů</h2>
+
+<h3>PDF — mPDF</h3>
+<ul>
+  <li>Metoda: <code>ExportService::exportResultsToPdf()</code></li>
+  <li>Formátování: barvy medailí, borders, header řádky s info o turnaji</li>
+  <li>Tmp soubory: <code>var/tmp/</code></li>
+</ul>
+
+<h3>XLSX — PhpSpreadsheet</h3>
+<ul>
+  <li>Metoda: <code>ExportService::exportResultsToXlsx()</code></li>
+  <li>Více listů — jeden list per věková kategorie</li>
+</ul>
+
+<h3>Životní cyklus exportního souboru</h3>
+<pre>
+1. ExportService → vygeneruje soubor do var/tmp/{filename}
+2. Controller   → BinaryFileResponse (stream do browseru)
+3. Soubor zůstane v tmp (cleanup by měl řešit cron)
+</pre>
+
+<hr>
+
+<h2>5. Stahované soubory od pořadatelů</h2>
+<ul>
+  <li>Výsledkové soubory turnajů (PDF, XLSX) se stahují z Flexii API</li>
+  <li>Ukládají se do <code>public/files/tournaments/{tournament_uid}/</code></li>
+  <li>Nabízeny ke stažení přes <code>download_result_file</code> endpoint</li>
+</ul>
+
+<hr>
+
+<h2>Bezpečnostní poznámky</h2>
+<table>
+  <tr><th>Integrace</th><th>Poznámka</th></tr>
+  <tr><td>Hajime API</td><td>SSL verifikace vypnuta — jen interní síť</td></tr>
+  <tr><td>Flexii API</td><td>Token autentizace + volitelné šifrování</td></tr>
+  <tr><td>DWH</td><td>Read-only DB uživatel</td></tr>
+  <tr><td>Export tmp soubory</td><td><code>var/tmp/</code> není web-přístupný (mimo <code>public/</code>)</td></tr>
+</table>
+
+</body>
+</html>

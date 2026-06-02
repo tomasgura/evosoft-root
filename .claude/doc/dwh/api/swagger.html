@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API dokumentace — DWH</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+<style>
+  body { margin: 0; }
+  #swagger-ui .topbar { background: #1b5e20; }
+  #swagger-ui .topbar-wrapper img { display: none; }
+  #swagger-ui .topbar-wrapper::after { content: "DWH — REST API v1"; color: #fff; font-size: 18px; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+const spec = {
+  openapi: "3.0.3",
+  info: {
+    title: "DWH REST API",
+    description: "REST API pro programmatický přístup k DWH. Všechny requesty vyžadují API token v hlavičce `apiToken`. API je verzované — aktuální verze: v1.",
+    version: "1.0.0",
+    contact: { name: "Evosoft", email: "info@evosoft.cz" }
+  },
+  servers: [
+    { url: "http://dwh.loc/api/rest/v1", description: "Lokální vývoj" },
+    { url: "https://dwh.evosoft.cz/api/rest/v1", description: "Produkce (příklad)" }
+  ],
+  tags: [
+    { name: "Datasets", description: "Správa datasetů" },
+    { name: "Actions", description: "Spouštění ETL akcí (import)" },
+    { name: "Publications", description: "Správa a spouštění publikací" },
+    { name: "EntityGroups", description: "Skupiny entit" },
+    { name: "SchemaRegistry", description: "Schema informace" }
+  ],
+  components: {
+    securitySchemes: {
+      ApiToken: {
+        type: "apiKey",
+        in: "header",
+        name: "apiToken",
+        description: "API token uložený v tabulce `application`"
+      }
+    },
+    schemas: {
+      Dataset: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          description: { type: "string", nullable: true },
+          dataset_part_id: { type: "integer" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" }
+        }
+      },
+      DatasetPart: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          definitions: {
+            type: "array",
+            items: { $ref: "#/components/schemas/DatasetPartDefinition" }
+          }
+        }
+      },
+      DatasetPartDefinition: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          data_type: { type: "string", enum: ["String","Integer","Float","Date","DateTime","Time","Bool","Email","ArrayInt"] },
+          required: { type: "boolean" },
+          order: { type: "integer" }
+        }
+      },
+      DatasetEntity: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          dataset_id: { type: "integer" },
+          status: { type: "string", enum: ["new","valid","invalid","transformed","enriched","validated","published","locked","archived"] },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" }
+        }
+      },
+      EntityValue: {
+        type: "object",
+        properties: {
+          def_id: { type: "integer", description: "ID definice pole (dataset_part_definition)" },
+          def_name: { type: "string" },
+          value: { type: "string", nullable: true }
+        }
+      },
+      Publication: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          type: { type: "string", enum: ["materialized_view","kafka","xlsx","api"] },
+          dataset_id: { type: "integer" },
+          last_run_at: { type: "string", format: "date-time", nullable: true }
+        }
+      },
+      EntityGroup: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          category_id: { type: "integer" },
+          entity_count: { type: "integer" }
+        }
+      },
+      JobResponse: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["queued","running","done","error"] },
+          job_id: { type: "string" },
+          message: { type: "string", nullable: true }
+        }
+      },
+      ErrorResponse: {
+        type: "object",
+        properties: {
+          code: { type: "integer" },
+          message: { type: "string" },
+          details: { type: "object", nullable: true }
+        }
+      }
+    },
+    responses: {
+      Unauthorized: {
+        description: "Chybný nebo chybějící API token",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      },
+      NotFound: {
+        description: "Záznam nenalezen",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      }
+    }
+  },
+  security: [{ ApiToken: [] }],
+  paths: {
+
+    "/datasets": {
+      get: {
+        tags: ["Datasets"],
+        summary: "Seznam datasetů",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 25 } }
+        ],
+        responses: {
+          "200": {
+            description: "Seznam datasetů",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Dataset" } },
+                example: [{ id: 1, name: "tournament_match", description: "Zápasy turnajů", dataset_part_id: 1 }]
+              }
+            }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/datasets/{id}": {
+      get: {
+        tags: ["Datasets"],
+        summary: "Detail datasetu",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "200": {
+            description: "Detail datasetu",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Dataset" } } }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/datasets/{id}/entities": {
+      get: {
+        tags: ["Datasets"],
+        summary: "Entity datasetu",
+        description: "Stránkovaný seznam datových entit (záznamů) datasetu.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+          { name: "status", in: "query", schema: { type: "string", enum: ["new","valid","invalid","published","locked","archived"] } },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 50 } }
+        ],
+        responses: {
+          "200": {
+            description: "Entity datasetu",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/DatasetEntity" } }
+              }
+            }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/datasets/{id}/entities/{entityId}/values": {
+      get: {
+        tags: ["Datasets"],
+        summary: "Hodnoty entity",
+        description: "Vrátí všechny hodnoty konkrétní entity (dataset_values).",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+          { name: "entityId", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        responses: {
+          "200": {
+            description: "Hodnoty entity",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/EntityValue" } },
+                example: [
+                  { def_id: 1, def_name: "tournament_uid", value: "T-2024-001" },
+                  { def_id: 2, def_name: "member_uid", value: "M-12345" },
+                  { def_id: 3, def_name: "result", value: "1" }
+                ]
+              }
+            }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/actions/get-data/{datasetEntityName}": {
+      post: {
+        tags: ["Actions"],
+        summary: "Spustit import datasetu",
+        description: "Zařadí import datasetu do RabbitMQ fronty. Import proběhne asynchronně. Vrátí job_id pro sledování stavu.",
+        parameters: [
+          {
+            name: "datasetEntityName",
+            in: "path",
+            required: true,
+            description: "Název datasetu (name z tabulky dataset)",
+            schema: { type: "string", example: "tournament_match" }
+          }
+        ],
+        responses: {
+          "202": {
+            description: "Job zařazen do fronty",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/JobResponse" },
+                example: { status: "queued", job_id: "job-abc123", message: null }
+              }
+            }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { description: "Dataset nenalezen", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/publications": {
+      get: {
+        tags: ["Publications"],
+        summary: "Seznam publikací",
+        responses: {
+          "200": {
+            description: "Publikace",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Publication" } } } }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/publications/{id}/run": {
+      post: {
+        tags: ["Publications"],
+        summary: "Spustit publikaci",
+        description: "Spustí export dat do cílového systému (materialized view, Kafka, soubor, ...). Asynchronní.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          "202": {
+            description: "Publikace zařazena do fronty",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/JobResponse" } } }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/entity-groups": {
+      get: {
+        tags: ["EntityGroups"],
+        summary: "Seznam skupin entit",
+        parameters: [
+          { name: "category_id", in: "query", schema: { type: "integer" } }
+        ],
+        responses: {
+          "200": {
+            description: "Skupiny entit",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/EntityGroup" } } } }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/schema-registry/{datasetName}": {
+      get: {
+        tags: ["SchemaRegistry"],
+        summary: "Schema datasetu",
+        description: "Vrátí definici struktury datasetu (sloupce, datové typy, pravidla).",
+        parameters: [
+          { name: "datasetName", in: "path", required: true, schema: { type: "string", example: "tournament_match" } }
+        ],
+        responses: {
+          "200": {
+            description: "Schema datasetu",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DatasetPart" },
+                example: {
+                  id: 1,
+                  name: "tournament_match",
+                  definitions: [
+                    { id: 1, name: "tournament_uid", data_type: "String", required: true, order: 1 },
+                    { id: 2, name: "member_uid", data_type: "String", required: true, order: 2 },
+                    { id: 3, name: "result", data_type: "Integer", required: false, order: 3 }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" }
+        }
+      }
+    }
+
+  }
+};
+
+SwaggerUIBundle({
+  spec: spec,
+  dom_id: '#swagger-ui',
+  presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+  layout: "BaseLayout",
+  deepLinking: true,
+  defaultModelsExpandDepth: 1,
+  defaultModelExpandDepth: 2
+});
+</script>
+</body>
+</html>

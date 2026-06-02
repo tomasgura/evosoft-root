@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hajime – Architektura</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; line-height: 1.65; color: #1a1a2e; background: #f0f2f8; }
+    a { color: #0d6efd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .layout { display: flex; min-height: 100vh; }
+    nav { width: 260px; min-width: 220px; background: #0d1b2a; color: #b0c4d8; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+    nav .brand { padding: 20px 20px 16px; background: #071626; border-bottom: 1px solid #1e3a52; }
+    nav .brand h1 { font-size: 19px; color: #fff; font-weight: 800; }
+    nav .brand p { font-size: 11px; color: #6a8faa; margin-top: 3px; }
+    nav ul { list-style: none; }
+    nav ul li a { display: block; padding: 7px 20px; color: #b0c4d8; font-size: 13px; border-left: 3px solid transparent; transition: background 0.12s; }
+    nav ul li a:hover { background: #162a3e; color: #e0ecfa; border-left-color: #0d6efd; text-decoration: none; }
+    nav ul li.section { padding: 14px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #3d6080; font-weight: 700; }
+    main { flex: 1; padding: 36px 48px 60px; max-width: 960px; }
+    h1 { font-size: 30px; font-weight: 800; color: #0d1b2a; margin-bottom: 8px; }
+    h2 { font-size: 21px; color: #0d1b2a; margin: 40px 0 14px; padding-top: 10px; border-top: 2px solid #dde3ee; }
+    h3 { font-size: 16px; color: #1a3a5c; margin: 22px 0 9px; font-weight: 700; }
+    h4 { font-size: 14px; color: #234; margin: 16px 0 7px; font-weight: 700; }
+    p { margin-bottom: 12px; color: #2a2a3e; }
+    ul, ol { margin: 0 0 14px 22px; }
+    li { margin-bottom: 4px; color: #2a2a3e; }
+    .table-wrap { overflow-x: auto; margin: 14px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+    th { background: #0d1b2a; color: #e0ecfa; text-align: left; padding: 9px 13px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 8px 13px; border-bottom: 1px solid #e3e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f9fd; }
+    tr:hover td { background: #edf2ff; }
+    pre { background: #0d1b2a; color: #c8d8e8; padding: 18px 22px; border-radius: 8px; overflow-x: auto; font-size: 12.5px; margin: 14px 0; line-height: 1.55; border-left: 4px solid #0d6efd; }
+    code { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; background: #eef2ff; padding: 2px 5px; border-radius: 3px; color: #0d6efd; }
+    pre code { background: transparent; color: inherit; padding: 0; font-size: 12.5px; }
+    blockquote { border-left: 4px solid #0d6efd; background: #e7f3ff; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; color: #1a3a5c; font-style: italic; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 12px; margin: 3px 3px 0 0; font-weight: 600; background: #e7f0ff; color: #0d6efd; }
+    footer { margin-top: 60px; padding: 18px 0; border-top: 1px solid #dde3ee; color: #888; font-size: 13px; }
+    /* Visual layer diagram */
+    .layer-diagram { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 24px 0; }
+    .layer-box { width: 100%; max-width: 700px; border-radius: 10px; padding: 14px 20px; text-align: center; }
+    .layer-box .layer-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .layer-box .layer-sub { font-size: 12px; opacity: 0.85; }
+    .layer-arrow { width: 2px; height: 24px; background: #94a3b8; margin: 0 auto; position: relative; }
+    .layer-arrow::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #94a3b8; }
+    .layer-split-wrap { width: 100%; max-width: 700px; display: flex; flex-direction: column; align-items: center; }
+    .layer-split-junction { width: 52%; height: 24px; border-left: 2px solid #94a3b8; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; margin: 0 auto; border-radius: 0 0 6px 6px; }
+    .layer-split { display: flex; gap: 16px; width: 100%; }
+    .layer-split .layer-box { flex: 1; }
+    .layer-split-merge { width: 52%; height: 24px; border-left: 2px solid #94a3b8; border-right: 2px solid #94a3b8; border-top: 2px solid #94a3b8; margin: 0 auto; border-radius: 6px 6px 0 0; }
+    .lc-entry { background: #1e3a5f; border: 2px solid #3b82f6; color: #e0f0ff; }
+    .lc-api   { background: #1a3550; border: 2px solid #60a5fa; color: #bfdbfe; }
+    .lc-mvc   { background: #1e3550; border: 2px solid #818cf8; color: #c7d2fe; }
+    .lc-biz   { background: #1a3340; border: 2px solid #34d399; color: #d1fae5; }
+    .lc-orm   { background: #1a2e40; border: 2px solid #fbbf24; color: #fef3c7; }
+    .lc-db    { background: #1a2535; border: 2px solid #f97316; color: #ffedd5; }
+    /* Domain tree */
+    .domain-tree { background: #f8f9fc; border: 1px solid #dde3ee; border-radius: 10px; padding: 20px 24px; margin: 16px 0; font-size: 13.5px; line-height: 1.9; }
+    .dt-root { font-weight: 800; font-size: 15px; color: #0d1b2a; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .dt-root .dt-badge { background: #0d6efd; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700; }
+    .dt-level1 { padding-left: 20px; border-left: 3px solid #3b82f6; margin: 8px 0 8px 12px; }
+    .dt-level2 { padding-left: 20px; border-left: 3px solid #10b981; margin: 6px 0 6px 12px; }
+    .dt-level3 { padding-left: 20px; border-left: 3px solid #f59e0b; margin: 4px 0 4px 12px; }
+    .dt-level4 { padding-left: 20px; border-left: 3px solid #8b5cf6; margin: 4px 0 4px 12px; }
+    .dt-item { display: flex; align-items: baseline; gap: 8px; }
+    .dt-name { font-weight: 700; color: #0d1b2a; }
+    .dt-desc { color: #555; font-size: 12.5px; }
+    /* Simple ER boxes */
+    .er-simple { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; align-items: flex-start; justify-content: center; }
+    .er-simple .es-box { background: #fff; border: 2px solid #dde3ee; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700; color: #0d1b2a; white-space: nowrap; }
+    .er-simple .es-box.es-main { background: #1e40af; color: #fff; border-color: #1e40af; }
+    .er-simple .es-box.es-key  { background: #065f46; color: #fff; border-color: #065f46; }
+    .er-simple .es-rel { align-self: center; font-size: 12px; color: #94a3b8; padding: 0 4px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand">
+      <h1>Architektura</h1>
+      <p>Technická dokumentace</p>
+    </div>
+    <ul>
+      <li class="section">Obsah</li>
+      <li><a href="#1-přehled-architektury">1. Přehled architektury</a></li>
+      <li><a href="#2-popis-modulů">2. Popis modulů</a></li>
+      <li><a href="#3-tok-requestů">3. Tok requestů</a></li>
+      <li><a href="#4-služby-a-dependency-injection">4. Služby a dependency injection</a></li>
+      <li><a href="#5-databázové-entity-a-vztahy">5. Databázové entity a vztahy</a></li>
+      <li><a href="#6-onboarding-pro-developera">6. Onboarding pro developera</a></li>
+    </ul>
+  </nav>
+  <main>
+    <h1>Architektonická dokumentace – Hajime</h1>
+    <blockquote>Judo Tournament Management System – PHP / Nette 3.1+</blockquote>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="1-přehled-architektury">1. Přehled architektury</h2>
+
+    <p><strong>Hajime</strong> je webová aplikace pro správu judo turnajů – přihlašování závodníků, vážení, generování pavouků, řízení zápasů na tatami a zobrazování výsledků.</p>
+
+    <h3>Technologický stack</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vrstva</th><th>Technologie</th><th>Verze</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Jazyk</td><td>PHP</td><td>8.x</td></tr>
+          <tr><td>Framework</td><td>Nette Application</td><td>3.1+</td></tr>
+          <tr><td>DI Container</td><td>Nette DI</td><td>3.x</td></tr>
+          <tr><td>ORM</td><td>Nextras ORM</td><td>4.0.6</td></tr>
+          <tr><td>DBAL</td><td>Nextras DBAL</td><td>4.0.5</td></tr>
+          <tr><td>Databáze</td><td>PostgreSQL</td><td>15</td></tr>
+          <tr><td>Šablony</td><td>Latte</td><td>3.0</td></tr>
+          <tr><td>REST API</td><td>Contributte/Apitte</td><td>0.12</td></tr>
+          <tr><td>Fronty</td><td>RabbitMQ (contributte/rabbitmq)</td><td>9.1</td></tr>
+          <tr><td>Migrace DB</td><td>Hyperdrive (Liquibase)</td><td>3.0</td></tr>
+          <tr><td>CLI</td><td>Contributte/Console</td><td>0.9</td></tr>
+          <tr><td>Ladění</td><td>Tracy</td><td>2.10+</td></tr>
+          <tr><td>PDF</td><td>mPDF</td><td>8.2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Vrstvový model</h3>
+
+    <div class="layer-diagram">
+      <div class="layer-box lc-entry">
+        <div class="layer-title">www/index.php</div>
+        <div class="layer-sub">Jediný vstupní bod HTTP · Bootstrap::boot() → DI Container</div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-split-wrap">
+        <div class="layer-split-junction"></div>
+        <div class="layer-split">
+          <div class="layer-box lc-api">
+            <div class="layer-title">REST API vrstva</div>
+            <div class="layer-sub">Apitte · 16 controllerů<br><code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px">/api/rest/…</code></div>
+          </div>
+          <div class="layer-box lc-mvc">
+            <div class="layer-title">MVC Presenters</div>
+            <div class="layer-sub">Nette Application · Latte šablony<br><code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px">ostatní URL</code></div>
+          </div>
+        </div>
+        <div class="layer-split-merge"></div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-box lc-biz">
+        <div class="layer-title">Business vrstva</div>
+        <div class="layer-sub">DataControllers · LogicControllers · Services · Algorithms · DataStructures</div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-box lc-orm">
+        <div class="layer-title">Data vrstva – Nextras ORM</div>
+        <div class="layer-sub">Entities · Repositories · Mappers · Orm.php</div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-box lc-db">
+        <div class="layer-title">PostgreSQL 15 · 5 schémat</div>
+        <div class="layer-sub"><code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">judo</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">base</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">configuration</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">log</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">public</code></div>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="2-popis-modulů">2. Popis modulů</h2>
+
+    <h3>Prezentační moduly</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Modul</th><th>URL prefix</th><th>Účel</th><th>Uživatel</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>TournamentModule</code></td><td><code>/tournament/</code></td><td>Správa turnajů, kategorií, závodníků, zápasů</td><td>Admin</td></tr>
+          <tr><td><code>ScaleModule</code></td><td><code>/scale/</code></td><td>Přihlašování a vážení závodníků</td><td>Scale operátor</td></tr>
+          <tr><td><code>ScoreboardModule</code></td><td><code>/scoreboard/</code></td><td>Živé zobrazení výsledků a skóre</td><td>Scoreboard operátor</td></tr>
+          <tr><td><code>InfopanelModule</code></td><td><code>/infopanel/</code></td><td>Informační tabule průběhu turnaje</td><td>Infopanel operátor</td></tr>
+          <tr><td><code>RestApi</code></td><td><code>/api/rest/</code></td><td>REST API (16 controllerů, JSON)</td><td>Externí klienti</td></tr>
+          <tr><td><code>ApiModule</code></td><td><code>/api/v2/</code>, <code>/api/open/</code></td><td>Starší API vrstva</td><td>Legacy klienti</td></tr>
+          <tr><td>Globální</td><td><code>/</code></td><td>Login, homepage, chyby</td><td>Všichni</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Business vrstva (<code>app/Business/</code>)</h3>
+
+<pre><code>Business/
+├── Controllers/
+│   ├── DataControllers/          # CRUD nad entitami (1 controller = 1 doménový objekt)
+│   │   ├── AdminController
+│   │   ├── CategoryController
+│   │   ├── CategoryAgeController
+│   │   ├── ClubController
+│   │   ├── MemberController
+│   │   ├── MemberCategoryController
+│   │   ├── ScaleController
+│   │   ├── SubCategoryController
+│   │   ├── TableController
+│   │   ├── TatamiController
+│   │   ├── TatamiMatchController
+│   │   ├── TournamentController
+│   │   ├── TournamentMatchController
+│   │   └── TournamentMatchDataController
+│   └── LogicControllers/         # Komplexní byznys operace
+│       ├── CompetitorsController
+│       ├── EventController
+│       ├── ScoreboardController
+│       ├── ShuffleController     # Generování párovacích pavouků
+│       ├── StatusController
+│       ├── TatamiShuffleController
+│       ├── TournamentMatchController
+│       └── UserController
+├── Services/
+│   ├── BasicAuthenticatorService
+│   ├── FlexiiAuthenticatorService
+│   ├── SuperadminAuthenticatorService
+│   ├── ConfigurationService
+│   ├── SessionService
+│   ├── MailService/
+│   ├── HtmlGeneratorService
+│   ├── PasswordPrintService
+│   └── ShuffleService/           # Algoritmy pro generování pavouka
+├── Algorithms/                   # TopSort, DFS
+├── Api/                          # ApiDataBuilder (DTO builder pro REST)
+├── DataStructures/               # Komplexní datové objekty (MatchList, Tournament)
+├── Enums/                        # GenderEnum, TournamentTypeEnum, DrawSystemEnum, …
+├── Helpers/
+├── Interfaces/
+└── Traits/</code></pre>
+
+    <h3>Data vrstva (<code>app/Data/</code>)</h3>
+
+    <p>Každá doménová složka obsahuje trojici: <strong>Entity</strong> + <strong>Repository</strong> + <strong>Mapper</strong>.</p>
+
+<pre><code>Data/
+├── Orm.php                       # Centrální registr všech repozitářů
+├── Tournament/
+├── Member/
+├── Club/
+├── Admin/
+├── Scale/
+├── Tatami/
+├── TatamiMatch/
+├── Category/
+├── CategoryAge/
+├── SubCategory/
+├── MemberCategory/
+├── TournamentMatch/
+├── TournamentMatchData/
+├── Table/
+├── SubCategoryResults/
+├── InfoPanel/
+└── User/                         # Value objekty (AdminUser, ScaleUser, …)</code></pre>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="3-tok-requestů">3. Tok requestů</h2>
+
+    <h3>A) Web request (MVC presenter)</h3>
+
+<pre><code>Browser
+  │
+  ▼
+www/index.php
+  │  Bootstrap::boot() → DI Container z common.neon + services.neon + local.neon
+  ▼
+Nette\Application\Application::run()
+  │  RouterFactory::createRouter() → párování URL
+  ▼
+[Modul]Presenter::startup()
+  │  Ověření přihlášení + oprávnění (Nette\Security\User)
+  ▼
+Presenter::action*($params)
+  │  Volání Business vrstvy (DataController / LogicController / Service)
+  ▼
+Presenter::render*()
+  │  Příprava proměnných pro šablonu
+  ▼
+Latte::render([Presenter]/[action].latte)
+  │
+  ▼
+HTML odpověď</code></pre>
+
+    <h3>B) REST API request</h3>
+
+<pre><code>HTTP klient
+  │
+  ▼
+www/index.php  ← detekuje /api/rest/ v $_SERVER['REQUEST_URI']
+  │
+  ▼
+Contributte\Middlewares pipeline (v pořadí):
+  1. TracyMiddleware          – Tracy debug bar
+  2. AutoBasePathMiddleware   – detekce base path
+  3. MethodOverrideMiddleware – X-HTTP-Method-Override
+  4. CorsMiddleware           – CORS hlavičky
+  5. TokenMiddleware          – ověření X-Api-Token → 401 při neplatném tokenu
+  6. VersionMiddleware        – X-Api-Version do odpovědi
+  7. ApiMiddleware            – Apitte routing (anotace @Path, @Method)
+  8. LogMiddleware            – logování request/response
+  │
+  ▼
+RestApi\Controllers\[Doména]Controller::method()
+  │  Parametry z anotací (@RequestParameters, @Path)
+  ▼
+Business\Controllers\DataController nebo LogicController
+  │
+  ▼
+Nextras ORM (Repository → Entity → Mapper → DBAL)
+  │
+  ▼
+JSON odpověď (Apitte Negotiation)</code></pre>
+
+    <h3>C) CLI command</h3>
+
+<pre><code>php bin/console.php [command]
+  │
+  ▼
+Bootstrap::bootForConsole() → DI Container
+  │
+  ▼
+Contributte\Console → konkrétní Command
+  │
+  ▼
+Hyperdrive příkazy (migrace/drop DB)</code></pre>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="4-služby-a-dependency-injection">4. Služby a dependency injection</h2>
+
+    <h3>Jak funguje DI v projektu</h3>
+
+    <p>Konfigurační soubory (<code>.neon</code>) se načítají v Bootstrap.php v tomto pořadí:</p>
+
+<pre><code>config/common.neon    ← hlavní konfigurace, extensions, parametry
+config/services.neon  ← ruční registrace + autodiscovery pravidla
+config/local.neon     ← lokální přepisy (není v gitu!)</code></pre>
+
+    <h3>Ručně registrované služby (<code>services.neon</code>)</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Alias / třída</th><th>Typ</th><th>Poznámka</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>router</code></td><td><code>RouterFactory::createRouter</code></td><td>factory metoda</td></tr>
+          <tr><td><code>authenticator</code></td><td><code>BasicAuthenticatorService</code></td><td>výchozí autentizátor</td></tr>
+          <tr><td><code>FlexiiAuthenticatorService</code></td><td><code>FlexiiAuthenticatorService</code></td><td>autowired: self</td></tr>
+          <tr><td><code>SuperadminAuthenticatorService</code></td><td><code>SuperadminAuthenticatorService</code></td><td>autowired: self</td></tr>
+          <tr><td><code>TournamentBuilder</code></td><td><code>Business\DataStructures\...\TournamentBuilder</code></td><td>manuálně</td></tr>
+          <tr><td><code>ApiDataBuilder</code></td><td><code>Business\Api\ApiDataBuilder</code></td><td>manuálně</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Autodiscovery (ResourceExtension)</h3>
+
+    <p>Projekt používá <code>contributte/di</code> pro automatické registrování služeb podle vzoru:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Zdroj</th><th>Vzor</th><th>Zahrnuty</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>app/Adapter/</code></td><td><code>*Adapter</code>, <code>*Factory</code></td><td>Adaptery + továrny</td></tr>
+          <tr><td><code>app/Business/Controllers/</code></td><td><code>*Controller</code></td><td>Business controllery</td></tr>
+          <tr><td><code>app/Business/Services/</code></td><td><code>*Service</code></td><td>Byznys služby</td></tr>
+          <tr><td><code>app/Presentation/RestApi/Controllers/</code></td><td><code>*Controller</code> (bez <code>BaseController</code>)</td><td>REST controllery</td></tr>
+          <tr><td><code>app/Presentation/*/Components/</code></td><td><code>*Factory</code></td><td>UI komponenty</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Registrované Nette extensions</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Extension klíč</th><th>Třída</th><th>Účel</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>orm</code></td><td><code>Nextras\Orm\Bridges\NetteDI\OrmExtension</code></td><td>ORM</td></tr>
+          <tr><td><code>dbal</code></td><td><code>Nextras\Dbal\Bridges\NetteDI\DbalExtension</code></td><td>DBAL / PostgreSQL</td></tr>
+          <tr><td><code>api</code></td><td><code>Apitte\Core\DI\ApiExtension</code></td><td>REST API routing</td></tr>
+          <tr><td><code>middlewares</code></td><td><code>Contributte\Middlewares\DI\MiddlewaresExtension</code></td><td>Middleware stack</td></tr>
+          <tr><td><code>console</code></td><td><code>Contributte\Console\DI\ConsoleExtension</code></td><td>CLI příkazy</td></tr>
+          <tr><td><code>translation</code></td><td><code>Contributte\Translation\DI\TranslationExtension</code></td><td>i18n (cs_CZ)</td></tr>
+          <tr><td><code>rabbitmq</code></td><td><code>Contributte\RabbitMQ\DI\RabbitMQExtension</code></td><td>Message fronty</td></tr>
+          <tr><td><code>eda</code></td><td><code>Eda\Bridges\Nette\DI\EdaExtension</code></td><td>Event-driven workflow</td></tr>
+          <tr><td><code>hyperdrive</code></td><td><code>Hyperdrive\Bridges\NetteDI\HyperdriveExtension</code></td><td>DB migrace</td></tr>
+          <tr><td><code>flexiiConnector</code></td><td><code>FlexiiConnector\Bridges\NetteDI\FlexiiConnectorExtension</code></td><td>Flexii API</td></tr>
+          <tr><td><code>lookup</code></td><td><code>Lookup\DI\LookupExtension</code></td><td>Lookup/číselníky</td></tr>
+          <tr><td><code>selectize</code></td><td><code>Selectize\Form\Control\SelectizeExtension</code></td><td>Selectize formuláře</td></tr>
+          <tr><td><code>caching</code></td><td><code>Cache\DI\CacheExtension</code></td><td>Cache vrstva</td></tr>
+          <tr><td><code>log</code></td><td><code>Log\DI\LogExtension</code></td><td>Logování</td></tr>
+          <tr><td><code>evosoftTools</code></td><td><code>EvosoftTools\DI\EvosoftToolsExtension</code></td><td>Interní utility</td></tr>
+          <tr><td><code>resource</code></td><td><code>Contributte\DI\Extension\ResourceExtension</code></td><td>Autodiscovery</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Autentizace – tři mechanismy</h3>
+
+<pre><code>/sign/in (web)     → BasicAuthenticatorService   → ověřuje Admin entitu
+/scale/sign/in     → BasicAuthenticatorService   → ověřuje Scale entitu
+/api/rest/**       → TokenMiddleware             → ověřuje API token z parametrů
+Flexii SSO         → FlexiiAuthenticatorService  → ověřuje přes Flexii API
+Superadmin         → SuperadminAuthenticatorService</code></pre>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="5-databázové-entity-a-vztahy">5. Databázové entity a vztahy</h2>
+
+    <h3>ER diagram (zjednodušený)</h3>
+
+    <div class="layer-diagram" style="gap:6px">
+      <div style="display:flex;gap:12px;align-items:center;width:100%;max-width:700px;justify-content:center">
+        <div class="layer-box lc-entry" style="max-width:160px;padding:10px 16px">
+          <div class="layer-title">Admin</div>
+          <div class="layer-sub">admin</div>
+        </div>
+        <span style="color:#94a3b8;font-size:12px">m:n</span>
+        <div class="layer-box lc-entry" style="max-width:260px;padding:10px 16px;flex:1">
+          <div class="layer-title">Tournament</div>
+          <div class="layer-sub">tournament · root entita</div>
+        </div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;width:100%;max-width:700px;justify-content:center">
+        <div class="layer-box lc-api" style="flex:1;min-width:130px;max-width:160px;padding:10px 14px">
+          <div class="layer-title">Category</div><div class="layer-sub">hmotnostní třída</div>
+        </div>
+        <div class="layer-box lc-api" style="flex:1;min-width:130px;max-width:160px;padding:10px 14px">
+          <div class="layer-title">CategoryAge</div><div class="layer-sub">věková kategorie</div>
+        </div>
+        <div class="layer-box lc-mvc" style="flex:1;min-width:130px;max-width:160px;padding:10px 14px">
+          <div class="layer-title">Tatami</div><div class="layer-sub">zápaziště</div>
+        </div>
+        <div class="layer-box lc-mvc" style="flex:1;min-width:130px;max-width:160px;padding:10px 14px">
+          <div class="layer-title">Scale</div><div class="layer-sub">váha</div>
+        </div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;width:100%;max-width:700px;justify-content:center">
+        <div class="layer-box lc-biz" style="flex:1;min-width:150px;max-width:200px;padding:10px 14px">
+          <div class="layer-title">SubCategory</div><div class="layer-sub">párovací skupina / pavouk</div>
+        </div>
+        <div class="layer-box lc-biz" style="flex:1;min-width:150px;max-width:220px;padding:10px 14px">
+          <div class="layer-title">MemberCategory</div><div class="layer-sub">přihláška závodníka</div>
+        </div>
+        <div class="layer-box lc-orm" style="flex:1;min-width:120px;max-width:160px;padding:10px 14px">
+          <div class="layer-title">Member</div><div class="layer-sub">závodník → Club</div>
+        </div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;width:100%;max-width:700px;justify-content:center">
+        <div class="layer-box lc-db" style="flex:1;min-width:180px;max-width:240px;padding:10px 14px">
+          <div class="layer-title">TournamentMatch</div><div class="layer-sub">zápas v pavouku · skóre</div>
+        </div>
+        <div class="layer-box lc-db" style="flex:1;min-width:140px;max-width:180px;padding:10px 14px">
+          <div class="layer-title">TatamiMatch</div><div class="layer-sub">slot na tatami (1:1)</div>
+        </div>
+        <div class="layer-box lc-db" style="flex:1;min-width:160px;max-width:200px;padding:10px 14px">
+          <div class="layer-title">TournamentMatchData</div><div class="layer-sub">JSON audit log</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Entity a jejich vlastnosti</h3>
+
+    <h4>Tournament</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>int PK</td><td></td></tr>
+          <tr><td><code>uid</code></td><td>string</td><td>Externě sdílený identifikátor</td></tr>
+          <tr><td><code>tournament_csju_id</code></td><td>string</td><td>ID v systému ČSJÚ</td></tr>
+          <tr><td><code>name</code></td><td>string</td><td>Název turnaje</td></tr>
+          <tr><td><code>dt_tournament_start/end</code></td><td>DateTimeImmutable?</td><td>Datum konání</td></tr>
+          <tr><td><code>dt_term_for_registration</code></td><td>DateTimeImmutable?</td><td>Uzávěrka přihlášek</td></tr>
+          <tr><td><code>location</code>, <code>city</code>, <code>region</code>, <code>country</code></td><td>string</td><td>Místo konání</td></tr>
+          <tr><td><code>tatami_count</code>, <code>scale_count</code></td><td>int</td><td>Počty zápasiš/váh</td></tr>
+          <tr><td><code>type</code></td><td>TournamentTypeEnum</td><td>Typ turnaje</td></tr>
+          <tr><td><code>is_approved</code>, <code>enabled</code></td><td>bool</td><td>Stav</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>clubs</code></td><td>OneHasMany → Club</td><td></td></tr>
+          <tr><td><code>admins</code></td><td>ManyHasMany → Admin</td><td></td></tr>
+          <tr><td><code>members</code></td><td>OneHasMany → Member</td><td></td></tr>
+          <tr><td><code>scales</code></td><td>OneHasMany → Scale</td><td></td></tr>
+          <tr><td><code>tatami</code></td><td>OneHasMany → Tatami</td><td></td></tr>
+          <tr><td><code>categories</code></td><td>OneHasMany → Category</td><td></td></tr>
+          <tr><td><code>categoryAges</code></td><td>OneHasMany → CategoryAge</td><td></td></tr>
+          <tr><td><code>infoPanels</code></td><td>OneHasMany → InfoPanel</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>Member (závodník)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>uid</code></td><td>string</td><td>Externě sdílený identifikátor</td></tr>
+          <tr><td><code>member_csju_id</code></td><td>string</td><td>ID v systému ČSJÚ</td></tr>
+          <tr><td><code>firstname</code>, <code>lastname</code></td><td>string</td><td></td></tr>
+          <tr><td><code>gender</code></td><td>GenderEnum</td><td></td></tr>
+          <tr><td><code>dt_birth</code></td><td>DateTimeImmutable?</td><td>Datum narození</td></tr>
+          <tr><td><code>kyu</code>, <code>dan</code></td><td>string?</td><td>Technická úroveň</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>tournament</code></td><td>ManyToOne → Tournament</td><td></td></tr>
+          <tr><td><code>club</code></td><td>ManyToOne → Club</td><td></td></tr>
+          <tr><td><code>memberCategories</code></td><td>OneHasMany → MemberCategory</td><td>Přihlášky do kategorií</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>MemberCategory (přihláška závodníka do kategorie)</h4>
+    <p>Spojovací entita – jeden závodník může být přihlášen do více kategorií.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>is_approved</code></td><td>bool</td><td>Přihláška schválena</td></tr>
+          <tr><td><code>is_dnf</code></td><td>bool</td><td>Závodník nenastoupil</td></tr>
+          <tr><td><code>starting_number</code></td><td>int?</td><td>Startovní číslo</td></tr>
+          <tr><td><code>weight</code></td><td>float?</td><td>Změřená váha</td></tr>
+          <tr><td><code>seeding</code></td><td>int</td><td>Nasazení</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>member</code></td><td>ManyToOne → Member</td><td></td></tr>
+          <tr><td><code>category</code></td><td>ManyToOne → Category</td><td>Přihlášená kategorie</td></tr>
+          <tr><td><code>categoryAge</code></td><td>ManyToOne → CategoryAge</td><td>Věková kategorie</td></tr>
+          <tr><td><code>subcategory</code></td><td>ManyToOne → SubCategory</td><td>Párovací skupina</td></tr>
+          <tr><td><code>scale</code></td><td>ManyToOne → Scale</td><td>Kde byl zvážen</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>Category (hmotnostní kategorie)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>weight_name</code></td><td>string</td><td>Název (např. "-60 kg")</td></tr>
+          <tr><td><code>weight_from</code>, <code>weight_to</code></td><td>int</td><td>Rozsah váhy</td></tr>
+          <tr><td><code>status</code></td><td>CategoryStatusEnum?</td><td>Stav kategorie</td></tr>
+          <tr><td><code>priority</code></td><td>int</td><td>Pořadí zobrazení</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>tournament</code></td><td>ManyToOne → Tournament</td><td></td></tr>
+          <tr><td><code>categoryAge</code></td><td>ManyToOne → CategoryAge</td><td></td></tr>
+          <tr><td><code>subcategories</code></td><td>OneHasMany → SubCategory</td><td></td></tr>
+          <tr><td><code>members</code></td><td>OneHasMany → MemberCategory</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>CategoryAge (věková kategorie)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>gender</code></td><td>GenderEnum</td><td></td></tr>
+          <tr><td><code>age_name</code>, <code>age_name_short</code></td><td>string</td><td>Název (např. "Kadeti")</td></tr>
+          <tr><td><code>age_from</code>, <code>age_to</code></td><td>int</td><td>Rozsah věku</td></tr>
+          <tr><td><code>match_time</code></td><td>int</td><td>Délka zápasu (sekundy)</td></tr>
+          <tr><td><code>is_golden_score</code></td><td>bool</td><td>Prodloužení povoleno</td></tr>
+          <tr><td><code>golden_score_time</code></td><td>int?</td><td>Délka golden score</td></tr>
+          <tr><td><code>weight_tolerance</code></td><td>float</td><td>Tolerancia váhy</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>SubCategory (párovací skupina / pavouk)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>draw_system</code></td><td>DrawSystemEnum</td><td>Typ pavouka (Table, Spider, …)</td></tr>
+          <tr><td><code>gender_split</code></td><td>bool</td><td>Rozdělení podle pohlaví</td></tr>
+          <tr><td><code>status</code></td><td>SubCategoryStatusEnum</td><td>Stav</td></tr>
+          <tr><td><code>is_repechage</code></td><td>bool?</td><td>Opravné kolo</td></tr>
+          <tr><td><code>weight</code></td><td>float?</td><td>Výsledná váha skupiny</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>category</code></td><td>ManyToOne → Category</td><td></td></tr>
+          <tr><td><code>members</code></td><td>OneHasMany → MemberCategory</td><td></td></tr>
+          <tr><td><code>tournamentMatches</code></td><td>OneHasMany → TournamentMatch</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>TournamentMatch (zápas v pavouku)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>subcategory_match_number</code></td><td>string</td><td>Identifikátor v pavouku</td></tr>
+          <tr><td><code>status</code></td><td>MatchStatusEnum</td><td>Stav zápasu</td></tr>
+          <tr><td><code>is_blue_winner</code></td><td>bool?</td><td>Vítěz (true=modrý, false=bílý)</td></tr>
+          <tr><td><code>round</code></td><td>int?</td><td>Kolo pavouka</td></tr>
+          <tr><td><code>round_name</code></td><td>string?</td><td>Název kola (finále, …)</td></tr>
+          <tr><td><code>blue_ippon</code>, <code>blue_wazari</code>, <code>blue_shido</code>, …</td><td>int/bool</td><td>Skóre modrého</td></tr>
+          <tr><td><code>white_ippon</code>, <code>white_wazari</code>, <code>white_shido</code>, …</td><td>int/bool</td><td>Skóre bílého</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>subcategory</code></td><td>ManyToOne → SubCategory</td><td></td></tr>
+          <tr><td><code>tatamiMatch</code></td><td>OneToOne → TatamiMatch</td><td>Kde se zápas koná</td></tr>
+          <tr><td><code>memberCategoryBlue</code></td><td>ManyToOne → MemberCategory</td><td></td></tr>
+          <tr><td><code>memberCategoryWhite</code></td><td>ManyToOne → MemberCategory</td><td></td></tr>
+          <tr><td><code>tournamentMatchData</code></td><td>OneHasMany → TournamentMatchData</td><td>Historie stavu</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>TatamiMatch (slot na tatami)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>priority</code></td><td>int</td><td>Pořadí na tatami</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>tatami</code></td><td>ManyToOne → Tatami</td><td>Na kterém tatami</td></tr>
+          <tr><td><code>admin</code></td><td>ManyToOne → Admin</td><td>Odpovědný rozhodčí</td></tr>
+          <tr><td><code>tournamentMatch</code></td><td>OneToOne → TournamentMatch</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>Admin</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th><th>Popis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>full_name</code></td><td>string</td><td></td></tr>
+          <tr><td><code>password</code></td><td>string</td><td>Hashované heslo</td></tr>
+          <tr><td><code>flexii_account</code></td><td>string?</td><td>Propojení s Flexii</td></tr>
+          <tr><td><code>is_super_admin</code></td><td>bool</td><td>Superadmin flag</td></tr>
+          <tr><td><strong>Vazby</strong></td><td></td><td></td></tr>
+          <tr><td><code>tournaments</code></td><td>ManyHasMany → Tournament</td><td></td></tr>
+          <tr><td><code>tatamiMatches</code></td><td>OneHasMany → TatamiMatch</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h4>TournamentMatchData</h4>
+    <p>Ukládá historii změn stavu zápasu (JSON snapshot při každé změně).</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vlastnost</th><th>Typ</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>match_data</code></td><td>array (JsonWrapper)</td></tr>
+          <tr><td><code>timestamp</code></td><td>DateTimeImmutable</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h3>Přehled tabulek (PostgreSQL schéma <code>judo</code>)</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Tabulka</th><th>Entita</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>tournament</code></td><td>Tournament</td></tr>
+          <tr><td><code>tournament_has_member</code></td><td>Member</td></tr>
+          <tr><td><code>club</code></td><td>Club</td></tr>
+          <tr><td><code>tournament_has_scale</code></td><td>Scale</td></tr>
+          <tr><td><code>tatami</code></td><td>Tatami</td></tr>
+          <tr><td><code>tatami_match</code></td><td>TatamiMatch</td></tr>
+          <tr><td><code>tournament_has_category</code></td><td>Category</td></tr>
+          <tr><td><code>tournament_has_category_age</code></td><td>CategoryAge</td></tr>
+          <tr><td><code>tournament_has_subcategory</code></td><td>SubCategory</td></tr>
+          <tr><td><code>tournament_has_member_has_category</code></td><td>MemberCategory</td></tr>
+          <tr><td><code>tournament_has_match</code></td><td>TournamentMatch</td></tr>
+          <tr><td><code>tournament_has_match_data</code></td><td>TournamentMatchData</td></tr>
+          <tr><td><code>tournament_has_table</code></td><td>Table</td></tr>
+          <tr><td><code>tournament_has_infopanel</code></td><td>InfoPanel</td></tr>
+          <tr><td><code>tournament_has_subcategory_results</code></td><td>SubCategoryResults</td></tr>
+          <tr><td><code>admin</code></td><td>Admin</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="6-onboarding-pro-developera">6. Onboarding pro developera</h2>
+
+    <h3>Doménový model jednou větou</h3>
+
+    <blockquote>Turnaj má hmotnostní kategorie, do nichž se přihlašují závodníci; závodníci se vážou a rozdělují do párovacích skupin (SubCategory), kde se generuje pavouk zápasů; zápasy probíhají na tatami a jejich výsledky tvoří výsledkovou listinu.</blockquote>
+
+    <h3>Doménový tok (entity)</h3>
+
+    <div class="domain-tree">
+      <div class="dt-root"><span class="dt-name">Tournament</span><span class="dt-badge">root</span></div>
+      <div class="dt-level1">
+        <div class="dt-item"><span class="dt-name">CategoryAge</span><span class="dt-desc">věk + pohlaví, např. „Kadeti muži"</span></div>
+        <div class="dt-level2">
+          <div class="dt-item"><span class="dt-name">Category</span><span class="dt-desc">hmotnostní třída, např. „-60 kg"</span></div>
+          <div class="dt-level3">
+            <div class="dt-item"><span class="dt-name">SubCategory</span><span class="dt-desc">párovací skupina s pavoukem</span></div>
+            <div class="dt-level4">
+              <div class="dt-item"><span class="dt-name">MemberCategory</span><span class="dt-desc">přihláška závodníka</span></div>
+              <div class="dt-level4" style="border-left-color:#ec4899">
+                <div class="dt-item"><span class="dt-name">Member</span><span class="dt-desc">závodník</span></div>
+                <div class="dt-level4" style="border-left-color:#94a3b8;margin-left:8px">
+                  <div class="dt-item"><span class="dt-name">Club</span><span class="dt-desc">sportovní klub</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="dt-level4">
+              <div class="dt-item"><span class="dt-name">TournamentMatch</span><span class="dt-desc">zápas v pavouku</span></div>
+              <div class="dt-level4" style="border-left-color:#ec4899">
+                <div class="dt-item"><span class="dt-name">TatamiMatch</span><span class="dt-desc">→ Tatami (slot na zápaziști)</span></div>
+                <div class="dt-item"><span class="dt-name">TournamentMatchData</span><span class="dt-desc">JSON log změn</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dt-level1" style="border-left-color:#f59e0b">
+        <div class="dt-item"><span class="dt-name">Scale</span><span class="dt-desc">váha – závodníci se přihlašují a váží</span></div>
+      </div>
+      <div class="dt-level1" style="border-left-color:#f59e0b">
+        <div class="dt-item"><span class="dt-name">Tatami</span><span class="dt-desc">zápaziště – přidělení zápasů</span></div>
+      </div>
+      <div class="dt-level1" style="border-left-color:#f59e0b">
+        <div class="dt-item"><span class="dt-name">Admin</span><span class="dt-desc">správce – přiřazen přes m:n vazbu</span></div>
+      </div>
+    </div>
+
+    <h3>Typická implementace nové funkce</h3>
+
+<pre><code>1. Migrace DB     resources/hyperdrive/structure/XXXX_nazev.xml
+2. Entita         app/Data/[Doména]/[Doména]Entity.php
+3. Mapper         app/Data/[Doména]/[Doména]Mapper.php     (tabulka + schéma)
+4. Repozitář      app/Data/[Doména]/[Doména]Repository.php
+5. Registrace     app/Data/Orm.php                         (přidat property)
+6. DataController app/Business/Controllers/DataControllers/
+7. REST endpoint  app/Presentation/RestApi/Controllers/
+                  nebo
+   MVC Presenter  app/Presentation/[Modul]Module/Presenters/</code></pre>
+
+    <h3>Rozhodovací strom: DataController vs LogicController</h3>
+
+<pre><code>Potřebuji jen CRUD?
+  ├── ANO → DataController
+  └── NE (složitá logika, více entit, algoritmy)
+        └── LogicController + volitelně Service</code></pre>
+
+    <h3>Klíčové soubory k pochopení projektu (v pořadí)</h3>
+
+    <ol>
+      <li><code>config/common.neon</code> – co aplikace potřebuje a jaké má parametry</li>
+      <li><code>app/Bootstrap.php</code> – inicializace DI containeru</li>
+      <li><code>app/RouterFactory.php</code> – URL routing</li>
+      <li><code>app/Data/Orm.php</code> – přehled všech entit/repozitářů</li>
+      <li><code>app/Presentation/RestApi/Controllers/TournamentController.php</code> – vzorový REST controller</li>
+      <li><code>app/Business/Controllers/DataControllers/TournamentController.php</code> – vzorový data controller</li>
+      <li><code>app/Business/Services/ShuffleService/ShuffleService.php</code> – nejsložitější část (algoritmy pavouka)</li>
+    </ol>
+
+    <h3>Enums (doménové výčty)</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Enum</th><th>Hodnoty</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>GenderEnum</code></td><td>MALE, FEMALE, BOTH</td></tr>
+          <tr><td><code>TournamentTypeEnum</code></td><td>různé typy turnajů</td></tr>
+          <tr><td><code>DrawSystemEnum</code></td><td>Table, Spider, … (typy pavouků)</td></tr>
+          <tr><td><code>CategoryStatusEnum</code></td><td>stav hmotnostní kategorie</td></tr>
+          <tr><td><code>SubCategoryStatusEnum</code></td><td>stav párovací skupiny</td></tr>
+          <tr><td><code>MatchStatusEnum</code></td><td>stav zápasu</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Typy uživatelů a jejich přístupy</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Typ</th><th>Přihlášení</th><th>Přístup</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>AdminUser</code></td><td><code>/sign/in</code></td><td><code>TournamentModule</code> – plná správa</td></tr>
+          <tr><td><code>ScaleUser</code></td><td><code>/scale/sign/in</code></td><td><code>ScaleModule</code> – vážení</td></tr>
+          <tr><td><code>ScoreboardUser</code></td><td>URL s heslem</td><td><code>ScoreboardModule</code> – jen čtení</td></tr>
+          <tr><td><code>InfoPanelUser</code></td><td>URL s heslem</td><td><code>InfopanelModule</code> – jen čtení</td></tr>
+          <tr><td><code>SuperAdminUser</code></td><td>SuperAdmin login</td><td>Cross-tournament přístup</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Časté chyby a jejich řešení</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Problém</th><th>Příčina</th><th>Řešení</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>ServiceNotFoundException</code></td><td>Třída není autowired</td><td>Přidat do <code>services.neon</code> nebo splnit podmínky autodiscovery</td></tr>
+          <tr><td>Tracy 500 bez detailu</td><td>Debug vypnutý</td><td>Přidat <code>.debug</code> soubor do root nebo <code>tracy: debugMode: true</code> v <code>local.neon</code></td></tr>
+          <tr><td>Nette routing 404</td><td>Špatný název presenteru/akce</td><td>Zkontrolovat <code>RouterFactory.php</code> a název třídy/metody</td></tr>
+          <tr><td>ORM mapping error</td><td>Špatná tabulka/schéma</td><td>Zkontrolovat <code>Mapper.php</code> – metodu <code>getTableName()</code></td></tr>
+          <tr><td>API 401 Unauthorized</td><td>Chybí token</td><td>Hlavička <code>X-Api-Token</code> nebo <code>?token=</code> parametr</td></tr>
+          <tr><td>PHPStan error v CI</td><td>Porušení Level 8 typů</td><td>Spustit <code>composer phpstan-app</code> lokálně před push</td></tr>
+          <tr><td><code>local.neon</code> chybí</td><td>Není v gitu</td><td>Zkopírovat <code>config/local.example.neon</code> a vyplnit</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Příkazy pro každodenní vývoj</h3>
+
+<pre><code>composer phpstan-app          # statická analýza (musí projít před MR)
+composer cs-app               # kontrola code style
+composer cbf-app-extreme      # autofix code style
+
+php bin/console.php hyperdrive:start postgre              # spustit migrace
+php bin/console.php hyperdrive:procedure postgre dropPostgre  # drop DB (dev)
+
+make reload                   # drop + znovu inicializovat DB
+make phpstan                  # alias pro phpstan</code></pre>
+
+    <footer>Hajime – architektura.html | Vygenerováno: 2026-05-31</footer>
+  </main>
+</div>
+</body>
+</html>

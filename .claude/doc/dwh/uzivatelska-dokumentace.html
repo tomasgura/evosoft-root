@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uživatelská dokumentace — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px; }
+  h3 { color: #388e3c; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1b5e20; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  ol li, ul li { margin: 6px 0; }
+  .info { background: #e3f2fd; border-left: 4px solid #1565c0; padding: 12px 16px; border-radius: 4px; margin: 12px 0; }
+  .workflow { background: #f3e5f5; border-left: 4px solid #7b1fa2; padding: 14px 18px; border-radius: 4px; margin: 12px 0; }
+  hr { border: none; border-top: 2px dashed #c8e6c9; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Uživatelská dokumentace — DWH</h1>
+
+<h2>K čemu DWH slouží</h2>
+<ul>
+  <li>Definovat <strong>datasety</strong> — struktura dat</li>
+  <li>Konfigurovat <strong>datové zdroje</strong> — odkud se data načítají</li>
+  <li>Nastavit <strong>pravidla zpracování</strong> — transformace, obohacení, validace</li>
+  <li>Spustit <strong>import dat</strong> — načtení ze zdrojů a zpracování</li>
+  <li><strong>Publikovat data</strong> — export do cílových systémů</li>
+  <li>Monitorovat <strong>stav zpracování</strong> a řešit chyby</li>
+</ul>
+
+<hr>
+
+<h2>Workflow — jak naimportovat data</h2>
+<div class="workflow">
+<ol>
+  <li><strong>Nadefinuj datový zdroj</strong> (Admin → Data Sources)<br>
+    Vyber připojení na zdrojovou DB, zadej SQL query, nastav plán.</li>
+  <li><strong>Nadefinuj pravidla</strong> (Admin → Transformace / Validace / Enrichment)<br>
+    Transformace, lookup join, kontroly formátů.</li>
+  <li><strong>Spusť import</strong> (Data → Dataset → „Načíst data")<br>
+    Data se zařadí do fronty a zpracují asynchronně.</li>
+  <li><strong>Zkontroluj výsledky</strong> (Data → Dataset → přehled entit)<br>
+    Stav každé entity: valid / invalid. Chybové hlášky u invalid.</li>
+  <li><strong>Spusť publikaci</strong> (Data → Dataset → „Publikovat")<br>
+    Data se exportují do cílového systému.</li>
+</ol>
+</div>
+
+<hr>
+
+<h2>Stavy datových entit</h2>
+<table>
+  <tr><th>Stav</th><th>Popis</th></tr>
+  <tr><td><code>new</code></td><td>Čerstvě importovaný záznam</td></tr>
+  <tr><td><code>valid</code></td><td>Prošel základní validací</td></tr>
+  <tr><td><code>invalid</code></td><td>Selhal validaci — obsahuje chybové záznamy</td></tr>
+  <tr><td><code>transformed</code></td><td>Prošel transformacemi</td></tr>
+  <tr><td><code>enriched</code></td><td>Prošel obohacením</td></tr>
+  <tr><td><code>validated</code></td><td>Prošel kompletní validací</td></tr>
+  <tr><td><code>published</code></td><td>Publikován do cílového systému</td></tr>
+  <tr><td><code>locked</code></td><td>Zamčen — nelze editovat</td></tr>
+  <tr><td><code>archived</code></td><td>Historický záznam</td></tr>
+</table>
+
+<hr>
+
+<h2>Validace</h2>
+<table>
+  <tr><th>Typ pravidla</th><th>Popis</th></tr>
+  <tr><td>Povinné pole</td><td>Hodnota nesmí být prázdná</td></tr>
+  <tr><td>Formát</td><td>Regex, email, číslo, datum</td></tr>
+  <tr><td>Min / Max</td><td>Rozsah číselné hodnoty</td></tr>
+  <tr><td>Unikátnost</td><td>Duplicitní hodnota není povolena</td></tr>
+</table>
+
+<hr>
+
+<h2>Export dat</h2>
+<table>
+  <tr><th>Typ</th><th>Popis</th></tr>
+  <tr><td>XLSX export</td><td>Data → Dataset → „Export" — stáhne Excel soubor</td></tr>
+  <tr><td>Materialized views</td><td>Po publikaci dostupná v PostgreSQL schématu <code>export.*</code></td></tr>
+  <tr><td>Kafka</td><td>Po publikaci zpráva na nakonfigurovaný topic</td></tr>
+</table>
+
+<hr>
+
+<h2>Tlačítka a akce</h2>
+<table>
+  <tr><th>Prvek</th><th>Akce</th></tr>
+  <tr><td>„Načíst data"</td><td>Spustí import datasetu (zařadí do fronty)</td></tr>
+  <tr><td>„Publikovat"</td><td>Spustí publikaci do cílového systému</td></tr>
+  <tr><td>„Export"</td><td>Stáhne XLSX soubor s daty</td></tr>
+  <tr><td>„Zamknout entitu"</td><td>Uzamkne entitu (nelze editovat)</td></tr>
+  <tr><td>„Archivovat"</td><td>Přesune staré entity do archivu</td></tr>
+  <tr><td>„Rebuild views"</td><td>Obnoví materialized views v DB</td></tr>
+</table>
+
+<hr>
+
+<h2>Přístupová práva</h2>
+<table>
+  <tr><th>Role</th><th>Co může</th></tr>
+  <tr><td>Admin</td><td>Konfigurace datasetů, zdrojů, pravidel; správa importů</td></tr>
+  <tr><td>Uživatel</td><td>Zobrazení dat, spuštění importů, export</td></tr>
+  <tr><td>Super Admin</td><td>Vše + správa uživatelů, systémová konfigurace</td></tr>
+</table>
+
+<hr>
+
+<h2>Možné chyby</h2>
+<table>
+  <tr><th>Chyba</th><th>Příčina</th><th>Co dělat</th></tr>
+  <tr><td>500 error na všech stránkách</td><td>RabbitMQ není dostupné</td><td>Kontaktovat správce</td></tr>
+  <tr><td>Import se nespustí</td><td>Consumer neběží</td><td>Kontaktovat správce — restart consumerů</td></tr>
+  <tr><td>Entita je trvale invalid</td><td>Špatná data nebo chyba pravidla</td><td>Zkontrolovat chyby v detailu entity</td></tr>
+  <tr><td>Publikace selže</td><td>Chyba připojení na cíl</td><td>Zkontrolovat konfiguraci publikace</td></tr>
+  <tr><td>Data jsou stará</td><td>Cron neproběhl</td><td>Spustit import ručně</td></tr>
+</table>
+
+<div class="info">
+  <strong>Důležité:</strong> Import je <strong>asynchronní</strong> — po kliknutí „Načíst data" se zpracovává na pozadí. Materialized views se aktualizují <strong>až po publikaci</strong> — předtím vidí ostatní systémy stará data.
+</div>
+
+</body>
+</html>

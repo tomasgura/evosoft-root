@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riziková místa — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .risk { border-radius: 6px; padding: 16px 20px; margin: 20px 0; }
+  .high { background: #ffebee; border-left: 5px solid #c62828; }
+  .medium { background: #fff8e1; border-left: 5px solid #e65100; }
+  .low { background: #f1f8e9; border-left: 5px solid #558b2f; }
+  .badge-high { background: #c62828; color: #fff; border-radius: 4px; padding: 2px 10px; font-size: 12px; }
+  .badge-med { background: #e65100; color: #fff; border-radius: 4px; padding: 2px 10px; font-size: 12px; }
+  .badge-low { background: #558b2f; color: #fff; border-radius: 4px; padding: 2px 10px; font-size: 12px; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>Riziková místa — Judo Výsledkový portál</h1>
+
+<h2>Přehled rizik</h2>
+<table>
+  <tr><th>#</th><th>Oblast</th><th>Závažnost</th><th>Popis</th></tr>
+  <tr><td>1</td><td>SSL Hajime API</td><td><span class="badge-med">Střední</span></td><td>SSL verifikace vypnuta</td></tr>
+  <tr><td>2</td><td>DWH read-only</td><td><span class="badge-low">Nízká</span></td><td>Závislost na externím ETL</td></tr>
+  <tr><td>3</td><td>Cache invalidace</td><td><span class="badge-med">Střední</span></td><td>Stará data při dlouhém TTL</td></tr>
+  <tr><td>4</td><td>Tmp soubory</td><td><span class="badge-low">Nízká</span></td><td>var/tmp/ se automaticky nemaže</td></tr>
+  <tr><td>5</td><td>Flexii sync</td><td><span class="badge-med">Střední</span></td><td>Bez retry logiky</td></tr>
+  <tr><td>6</td><td>Live data závislost</td><td><span class="badge-med">Střední</span></td><td>Hajime API jako SPOF pro live turnaje</td></tr>
+  <tr><td>7</td><td>Proprietární ORM</td><td><span class="badge-med">Střední</span></td><td>EDA bez veřejné dokumentace</td></tr>
+  <tr><td>8</td><td>Testy chybí</td><td><span class="badge-high">Vysoká</span></td><td>Žádné PHP unit/integration testy</td></tr>
+</table>
+
+<h2>Detail rizik</h2>
+
+<div class="risk high">
+  <h3>8. Chybějící automatizované testy <span class="badge-high">Vysoká</span></h3>
+  <p><strong>Popis:</strong> V src/ nejsou žádné unit ani integration testy. PHPStan a Playwright jsou nakonfigurované, ale Playwright testy nebyly nalezeny.</p>
+  <p><strong>Dopad:</strong> Regrese nejsou automaticky detekovány, každá změna je riziková.</p>
+  <p><strong>Doporučení:</strong> Přidat unit testy alespoň pro Services a Repository vrstvu. Prioritně pokrýt složitou logiku (cache, export, kategorie).</p>
+</div>
+
+<div class="risk medium">
+  <h3>6. Hajime API jako Single Point of Failure <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> Pro live turnaje je jediným zdrojem dat Hajime API. Výpadek = prázdné stránky.</p>
+  <p><strong>Dopad:</strong> Viditelný v době konání turnaje — nejkritičtější moment pro uživatele.</p>
+  <p><strong>Doporučení:</strong> Přidat graceful degradaci — zobrazit poslední cached data nebo hlášku o výpadku.</p>
+</div>
+
+<div class="risk medium">
+  <h3>3. Cache invalidace <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> Data jsou cachována s fixním TTL. Při aktualizaci v DWH nebo Flexii se cache neinvaliduje.</p>
+  <p><strong>Dopad:</strong> Zpožděné zobrazení aktuálních výsledků po synchronizaci.</p>
+  <p><strong>Doporučení:</strong> Manuální invalidace cache po Flexii syncu, nebo kratší TTL pro kritická data.</p>
+</div>
+
+<div class="risk medium">
+  <h3>5. Flexii synchronizace bez retry <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> CLI commandi nemají retry logiku. Chyba API = ztráta dat pro daný run.</p>
+  <p><strong>Dopad:</strong> Chybějící loga/soubory, obnoví se až při dalším cron spuštění.</p>
+  <p><strong>Doporučení:</strong> Přidat retry s exponenciálním backoffem, logovat chyby per-turnaj/klub.</p>
+</div>
+
+<div class="risk medium">
+  <h3>1. SSL verifikace vypnuta <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> HajimeEndpoint má vypnutou SSL verifikaci (setSslVerifyHost(false)).</p>
+  <p><strong>Dopad:</strong> Možnost MITM útoku v interní síti.</p>
+  <p><strong>Doporučení:</strong> Ověřit certifikát Hajime API a SSL verifikaci zapnout.</p>
+</div>
+
+<div class="risk medium">
+  <h3>7. Proprietární ORM EDA <span class="badge-med">Střední</span></h3>
+  <p><strong>Popis:</strong> EDA je interní Evosoft knihovna bez veřejné dokumentace.</p>
+  <p><strong>Dopad:</strong> Vyšší onboarding čas pro nové developery.</p>
+  <p><strong>Doporučení:</strong> Zajistit interní dokumentaci EDA, komentáře u nestandardního chování.</p>
+</div>
+
+<div class="risk low">
+  <h3>4. Tmp soubory (export) <span class="badge-low">Nízká</span></h3>
+  <p><strong>Popis:</strong> ExportService ukládá exportní soubory do var/tmp/ a nemaže je.</p>
+  <p><strong>Dopad:</strong> Postupné plnění disku.</p>
+  <p><strong>Doporučení:</strong> Přidat cron job pro mazání starých souborů z var/tmp/.</p>
+</div>
+
+<div class="risk low">
+  <h3>2. Závislost na externím ETL <span class="badge-low">Nízká</span></h3>
+  <p><strong>Popis:</strong> DWH tabulky aktualizuje externí ETL. Při jeho selhání aplikace zobrazuje stará data bez varování.</p>
+  <p><strong>Dopad:</strong> Neaktuální výsledky pro uživatele.</p>
+  <p><strong>Doporučení:</strong> Zobrazit datum posledního refreshe DWH v UI nebo admin rozhraní.</p>
+</div>
+
+<h2>Doporučená prioritizace oprav</h2>
+<table>
+  <tr><th>Pořadí</th><th>Akce</th></tr>
+  <tr><td>1</td><td>Přidat automatizované testy (Services, Repository)</td></tr>
+  <tr><td>2</td><td>Přidat cron job pro čištění var/tmp/</td></tr>
+  <tr><td>3</td><td>Graceful degradace při výpadku Hajime API</td></tr>
+  <tr><td>4</td><td>Zapnout SSL verifikaci pro Hajime API</td></tr>
+  <tr><td>5</td><td>Přidat retry logiku pro Flexii sync</td></tr>
+  <tr><td>6</td><td>Monitorovat datum posledního ETL refreshe DWH</td></tr>
+</table>
+
+</body>
+</html>

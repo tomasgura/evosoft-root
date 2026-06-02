@@ -1,0 +1,2380 @@
+openapi: 3.0.3
+
+info:
+  title: Hajime – Judo Tournament Management API
+  description: |
+    REST API pro systém správy judo turnajů **Hajime**.
+
+    ## Autentizace
+    Každý request musí obsahovat platný API token buď jako HTTP hlavičku nebo query parametr.
+
+    ```
+    X-Api-Token: <token>
+    ```
+    nebo
+    ```
+    GET /api/rest/tournament/list?token=<token>
+    ```
+
+    Tokeny jsou konfigurovány v `config/local.neon` → `parameters.apiTokens`.
+
+    ## Formát odpovědi
+    Všechny odpovědi mají tvar:
+    ```json
+    {
+      "app": {
+        "datetime": "2026-05-31 12:00:00",
+        "version": 1.0
+      },
+      "response": { ... }
+    }
+    ```
+
+    ## Formáty dat
+    - Datum: `d.m.Y` (např. `15.05.2026`)
+    - Datum a čas: `d.m.Y H:i` (např. `15.05.2026 09:00`)
+
+  version: "1.0"
+  contact:
+    name: Evosoft
+    email: info@evosoft.cz
+
+servers:
+  - url: /api/rest
+    description: REST API base path
+
+security:
+  - ApiTokenHeader: []
+  - ApiTokenQuery: []
+
+tags:
+  - name: Tournaments
+    description: Správa turnajů
+  - name: Members
+    description: Správa závodníků
+  - name: Clubs
+    description: Správa klubů
+  - name: Admins
+    description: Správa adminů
+  - name: Category
+    description: Hmotnostní kategorie
+  - name: CategoryAge
+    description: Věkové kategorie
+  - name: SubCategory
+    description: Párovací skupiny (pavouk)
+  - name: MemberCategory
+    description: Přihlášky závodníků do kategorií
+  - name: Scale
+    description: Váhy
+  - name: Tatami
+    description: Zápaziště
+  - name: TatamiMatch
+    description: Sloty zápasů na tatami
+  - name: TournamentMatch
+    description: Zápasy v turnajovém pavouku
+  - name: TournamentMatchData
+    description: Auditní log stavu zápasů
+  - name: Table
+    description: Tabulkové přehledy kategorií
+
+paths:
+
+  # ─── TOURNAMENT ────────────────────────────────────────────────────────────
+
+  /tournament/list:
+    get:
+      tags: [Tournaments]
+      summary: Výpis všech aktivních turnajů
+      operationId: tournamentList
+      responses:
+        "200":
+          description: Kolekce turnajů (klíč = uid)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTournamentCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tournament/{uid}:
+    get:
+      tags: [Tournaments]
+      summary: Detail turnaje
+      operationId: tournamentShow
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+      responses:
+        "200":
+          description: Detail turnaje včetně závodníků, klubů, adminů, tatami a vah
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTournamentDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Tournaments]
+      summary: Aktualizace turnaje
+      operationId: tournamentUpdate
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTournament"
+      responses:
+        "200":
+          description: Turnaj úspěšně aktualizován
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tournament/:
+    post:
+      tags: [Tournaments]
+      summary: Vytvoření nového turnaje
+      operationId: tournamentCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTournament"
+      responses:
+        "200":
+          description: Turnaj úspěšně vytvořen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tournament/approve/{uid}/{approved}:
+    put:
+      tags: [Tournaments]
+      summary: Schválení / zrušení schválení turnaje
+      operationId: tournamentApprove
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+        - name: approved
+          in: path
+          required: true
+          schema:
+            type: boolean
+          description: "true = schválit, false = zrušit schválení"
+      responses:
+        "200":
+          description: Stav schválení byl změněn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── MEMBER ────────────────────────────────────────────────────────────────
+
+  /member/list:
+    get:
+      tags: [Members]
+      summary: Výpis všech závodníků
+      operationId: memberList
+      responses:
+        "200":
+          description: Kolekce závodníků (klíč = uid)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseMemberCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /member/{tournament_uid}/{uid}:
+    get:
+      tags: [Members]
+      summary: Detail závodníka
+      operationId: memberShow
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+        - $ref: "#/components/parameters/UidPath"
+      responses:
+        "200":
+          description: Detail závodníka včetně kategorií
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseMemberDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Members]
+      summary: Aktualizace závodníka
+      operationId: memberUpdate
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+        - $ref: "#/components/parameters/UidPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestMember"
+      responses:
+        "200":
+          description: Závodník úspěšně aktualizován
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /member/:
+    post:
+      tags: [Members]
+      summary: Vytvoření závodníka
+      operationId: memberCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestMember"
+      responses:
+        "200":
+          description: Závodník úspěšně vytvořen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── CLUB ──────────────────────────────────────────────────────────────────
+
+  /club/list:
+    get:
+      tags: [Clubs]
+      summary: Výpis všech klubů
+      operationId: clubList
+      responses:
+        "200":
+          description: Kolekce klubů (klíč = uid)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseClubCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /club/{tournament_uid}/{uid}:
+    get:
+      tags: [Clubs]
+      summary: Detail klubu pro daný turnaj
+      operationId: clubShow
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+        - $ref: "#/components/parameters/UidPath"
+      responses:
+        "200":
+          description: Detail klubu včetně závodníků
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseClubDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Clubs]
+      summary: Aktualizace klubu
+      operationId: clubUpdate
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+        - $ref: "#/components/parameters/UidPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestClub"
+      responses:
+        "200":
+          description: Klub úspěšně aktualizován
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /club/:
+    post:
+      tags: [Clubs]
+      summary: Vytvoření klubu
+      operationId: clubCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestClub"
+      responses:
+        "200":
+          description: Klub úspěšně vytvořen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── ADMIN ─────────────────────────────────────────────────────────────────
+
+  /admin/list:
+    get:
+      tags: [Admins]
+      summary: Výpis všech adminů
+      operationId: adminList
+      responses:
+        "200":
+          description: Kolekce adminů (klíč = uid)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAdminCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /admin/{uid}:
+    get:
+      tags: [Admins]
+      summary: Detail admina
+      operationId: adminShow
+      parameters:
+        - $ref: "#/components/parameters/UidPath"
+      responses:
+        "200":
+          description: Detail admina
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAdminDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /admin/{tournament_uid}/{uid}:
+    put:
+      tags: [Admins]
+      summary: Aktualizace admina
+      operationId: adminUpdate
+      parameters:
+        - $ref: "#/components/parameters/TournamentUidPath"
+        - $ref: "#/components/parameters/UidPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestAdmin"
+      responses:
+        "200":
+          description: Admin úspěšně aktualizován
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /admin/:
+    post:
+      tags: [Admins]
+      summary: Vytvoření admina
+      operationId: adminCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestAdmin"
+      responses:
+        "200":
+          description: Admin úspěšně vytvořen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── CATEGORY ──────────────────────────────────────────────────────────────
+
+  /category/list:
+    get:
+      tags: [Category]
+      summary: Výpis všech hmotnostních kategorií
+      operationId: categoryList
+      responses:
+        "200":
+          description: Kolekce kategorií (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseCategoryCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /category/{id}:
+    get:
+      tags: [Category]
+      summary: Detail hmotnostní kategorie
+      operationId: categoryShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail kategorie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseCategoryDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Category]
+      summary: Aktualizace hmotnostní kategorie
+      operationId: categoryUpdate
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCategory"
+      responses:
+        "200":
+          description: Kategorie úspěšně aktualizována
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /category/:
+    post:
+      tags: [Category]
+      summary: Vytvoření hmotnostní kategorie
+      operationId: categoryCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCategory"
+      responses:
+        "200":
+          description: Kategorie úspěšně vytvořena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── CATEGORY AGE ──────────────────────────────────────────────────────────
+
+  /category-age/list:
+    get:
+      tags: [CategoryAge]
+      summary: Výpis všech věkových kategorií
+      operationId: categoryAgeList
+      responses:
+        "200":
+          description: Kolekce věkových kategorií (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseCategoryAgeCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /category-age/{id}:
+    get:
+      tags: [CategoryAge]
+      summary: Detail věkové kategorie
+      operationId: categoryAgeShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail věkové kategorie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseCategoryAgeDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [CategoryAge]
+      summary: Aktualizace věkové kategorie
+      operationId: categoryAgeUpdate
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCategoryAge"
+      responses:
+        "200":
+          description: Věková kategorie úspěšně aktualizována
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /category-age/:
+    post:
+      tags: [CategoryAge]
+      summary: Vytvoření věkové kategorie
+      operationId: categoryAgeCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCategoryAge"
+      responses:
+        "200":
+          description: Věková kategorie úspěšně vytvořena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── SUBCATEGORY ───────────────────────────────────────────────────────────
+
+  /subcategory/list:
+    get:
+      tags: [SubCategory]
+      summary: Výpis všech párovacích skupin
+      operationId: subcategoryList
+      responses:
+        "200":
+          description: Kolekce párovacích skupin (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSubCategoryCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /subcategory/{id}:
+    get:
+      tags: [SubCategory]
+      summary: Detail párovací skupiny
+      operationId: subcategoryShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail párovací skupiny
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSubCategoryDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── MEMBER CATEGORY ───────────────────────────────────────────────────────
+
+  /member-category/list:
+    get:
+      tags: [MemberCategory]
+      summary: Výpis všech přihlášek závodníků do kategorií
+      operationId: memberCategoryList
+      responses:
+        "200":
+          description: Kolekce přihlášek (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseMemberCategoryCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /member-category/{id}:
+    get:
+      tags: [MemberCategory]
+      summary: Detail přihlášky závodníka do kategorie
+      operationId: memberCategoryShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail přihlášky
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseMemberCategoryDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [MemberCategory]
+      summary: Aktualizace přihlášky
+      operationId: memberCategoryUpdate
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestMemberCategory"
+      responses:
+        "200":
+          description: Přihláška úspěšně aktualizována
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /member-category/:
+    post:
+      tags: [MemberCategory]
+      summary: Vytvoření přihlášky závodníka do kategorie
+      operationId: memberCategoryCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestMemberCategory"
+      responses:
+        "200":
+          description: Přihláška úspěšně vytvořena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── SCALE ─────────────────────────────────────────────────────────────────
+
+  /scale/list:
+    get:
+      tags: [Scale]
+      summary: Výpis všech váh
+      operationId: scaleList
+      responses:
+        "200":
+          description: Kolekce váh (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseScaleCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /scale/{id}:
+    get:
+      tags: [Scale]
+      summary: Detail váhy
+      operationId: scaleShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail váhy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseScaleDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Scale]
+      summary: Aktualizace váhy
+      operationId: scaleUpdate
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestScale"
+      responses:
+        "200":
+          description: Váha úspěšně aktualizována
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /scale/:
+    post:
+      tags: [Scale]
+      summary: Vytvoření váhy
+      operationId: scaleCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestScale"
+      responses:
+        "200":
+          description: Váha úspěšně vytvořena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── TATAMI ────────────────────────────────────────────────────────────────
+
+  /tatami/list:
+    get:
+      tags: [Tatami]
+      summary: Výpis všech zápaziš
+      operationId: tatamiList
+      responses:
+        "200":
+          description: Kolekce tatami (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTatamiCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tatami/{id}:
+    get:
+      tags: [Tatami]
+      summary: Detail tatami
+      operationId: tatamiShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail tatami
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTatamiDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Tatami]
+      summary: Aktualizace tatami
+      operationId: tatamiUpdate
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTatami"
+      responses:
+        "200":
+          description: Tatami úspěšně aktualizováno
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tatami/:
+    post:
+      tags: [Tatami]
+      summary: Vytvoření tatami
+      operationId: tatamiCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTatami"
+      responses:
+        "200":
+          description: Tatami úspěšně vytvořeno
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── TATAMI MATCH ──────────────────────────────────────────────────────────
+
+  /tatami-match/list:
+    get:
+      tags: [TatamiMatch]
+      summary: Výpis všech slotů zápasů na tatami
+      operationId: tatamiMatchList
+      responses:
+        "200":
+          description: Kolekce tatami-match slotů (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTatamiMatchCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tatami-match/{id}:
+    get:
+      tags: [TatamiMatch]
+      summary: Detail slotu zápasu na tatami
+      operationId: tatamiMatchShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail tatami-match slotu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTatamiMatchDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── TOURNAMENT MATCH ──────────────────────────────────────────────────────
+
+  /tournament-match/list:
+    get:
+      tags: [TournamentMatch]
+      summary: Výpis všech zápasů v turnajovém pavouku
+      operationId: tournamentMatchList
+      responses:
+        "200":
+          description: Kolekce zápasů (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTournamentMatchCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tournament-match/{id}:
+    get:
+      tags: [TournamentMatch]
+      summary: Detail zápasu v pavouku
+      operationId: tournamentMatchShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail zápasu včetně závodníků a skóre
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTournamentMatchDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── TOURNAMENT MATCH DATA ─────────────────────────────────────────────────
+
+  /tournament-match-data/list:
+    get:
+      tags: [TournamentMatchData]
+      summary: Výpis auditního logu změn stavu zápasů
+      operationId: tournamentMatchDataList
+      responses:
+        "200":
+          description: Kolekce záznamů (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTournamentMatchDataCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /tournament-match-data/{id}:
+    get:
+      tags: [TournamentMatchData]
+      summary: Detail záznamu o změně stavu zápasu
+      operationId: tournamentMatchDataShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: JSON snapshot stavu zápasu s časovým razítkem
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTournamentMatchDataDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  # ─── TABLE ─────────────────────────────────────────────────────────────────
+
+  /table/list:
+    get:
+      tags: [Table]
+      summary: Výpis všech tabulkových přehledů kategorií
+      operationId: tableList
+      responses:
+        "200":
+          description: Kolekce tabulek (klíč = id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTableCollection"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /table/{id}:
+    get:
+      tags: [Table]
+      summary: Detail tabulkového přehledu
+      operationId: tableShow
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Detail tabulky
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseTableDetail"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Table]
+      summary: Aktualizace tabulky
+      operationId: tableUpdate
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTable"
+      responses:
+        "200":
+          description: Tabulka úspěšně aktualizována
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /table/:
+    post:
+      tags: [Table]
+      summary: Vytvoření tabulky
+      operationId: tableCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTable"
+      responses:
+        "200":
+          description: Tabulka úspěšně vytvořena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSuccess"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "406": { $ref: "#/components/responses/NotAcceptable" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPONENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+components:
+
+  securitySchemes:
+    ApiTokenHeader:
+      type: apiKey
+      in: header
+      name: X-Api-Token
+      description: API token v HTTP hlavičce
+    ApiTokenQuery:
+      type: apiKey
+      in: query
+      name: token
+      description: API token jako query parametr
+
+  parameters:
+    UidPath:
+      name: uid
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Externě sdílený identifikátor entity (UID)
+
+    TournamentUidPath:
+      name: tournament_uid
+      in: path
+      required: true
+      schema:
+        type: string
+      description: UID turnaje (z /tournament/list)
+
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Interní databázové ID entity
+
+  # ─── SHARED WRAPPER ────────────────────────────────────────────────────────
+
+  schemas:
+
+    ApiMeta:
+      type: object
+      description: Metadata odpovědi
+      properties:
+        datetime:
+          type: string
+          example: "2026-05-31 09:00:00"
+        version:
+          type: number
+          example: 1.0
+
+    ApiResponseSuccess:
+      type: object
+      properties:
+        app:
+          $ref: "#/components/schemas/ApiMeta"
+        response:
+          type: object
+          properties:
+            code:
+              type: integer
+              example: 200
+            status:
+              type: string
+              example: success
+            message:
+              type: string
+              example: "Entity ID: 42 with UID: abc123 was created."
+            affectedEntity:
+              type: integer
+              nullable: true
+              description: Interní ID ovlivněné entity (při POST/PUT)
+              example: 42
+
+    ApiResponseError:
+      type: object
+      properties:
+        app:
+          $ref: "#/components/schemas/ApiMeta"
+        response:
+          type: object
+          properties:
+            code:
+              type: integer
+            status:
+              type: string
+              example: error
+            message:
+              type: string
+            requiredProperties:
+              type: array
+              items:
+                type: string
+              description: Seznam povinných polí (pouze při 400)
+            invalidProperties:
+              type: array
+              items:
+                type: string
+              description: Seznam nevalidních polí (pouze při 400)
+
+    # ─── ENTITY SCHEMAS ──────────────────────────────────────────────────────
+
+    Tournament:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: Externě sdílený identifikátor
+          example: "TRN-2026-001"
+        tournament_csju_id:
+          type: string
+          description: ID v systému ČSJÚ
+          example: "12345"
+        name:
+          type: string
+          example: "Mistrovství ČR 2026"
+        dt_tournament_start:
+          type: string
+          nullable: true
+          description: "Formát: d.m.Y H:i"
+          example: "15.05.2026 09:00"
+        dt_tournament_end:
+          type: string
+          nullable: true
+          description: "Formát: d.m.Y H:i"
+          example: "15.05.2026 18:00"
+        dt_term_for_registration:
+          type: string
+          nullable: true
+          description: "Uzávěrka přihlášek. Formát: d.m.Y H:i"
+          example: "01.05.2026 23:59"
+        location:
+          type: string
+          example: "Sportovní hala Pardubice"
+        tatami_count:
+          type: integer
+          example: 6
+        scale_count:
+          type: integer
+          example: 3
+        tournament_starting_fee:
+          type: integer
+          nullable: true
+          description: Startovní poplatek v Kč
+          example: 500
+        web_link_for_registration:
+          type: string
+          nullable: true
+          example: "https://judo.cz/registrace"
+        street:
+          type: string
+          example: "Sukova"
+        street_number:
+          type: string
+          nullable: true
+          example: "1784"
+        house_number:
+          type: string
+          nullable: true
+          example: "2"
+        city:
+          type: string
+          example: "Pardubice"
+        postal_code:
+          type: string
+          example: "530 02"
+        country:
+          type: string
+          example: "CZ"
+        region:
+          type: string
+          example: "Pardubický kraj"
+        type:
+          type: string
+          description: Typ turnaje (TournamentTypeEnum)
+          example: "national"
+        weight_required:
+          type: boolean
+          example: true
+
+    TournamentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Tournament"
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/Member"
+            clubs:
+              type: array
+              items:
+                $ref: "#/components/schemas/Club"
+            admins:
+              type: array
+              items:
+                $ref: "#/components/schemas/Admin"
+            scales:
+              type: array
+              items:
+                $ref: "#/components/schemas/Scale"
+            tatami:
+              type: array
+              items:
+                $ref: "#/components/schemas/Tatami"
+
+    Member:
+      type: object
+      properties:
+        uid:
+          type: string
+          example: "MBR-001"
+        member_csju_id:
+          type: string
+          example: "CZ123456"
+        firstname:
+          type: string
+          example: "Jan"
+        lastname:
+          type: string
+          example: "Novák"
+        gender:
+          type: string
+          enum: [MALE, FEMALE, BOTH]
+          example: MALE
+        dt_birth:
+          type: string
+          nullable: true
+          description: "Formát: d.m.Y"
+          example: "15.03.2005"
+        dt_birthyear:
+          type: integer
+          example: 2005
+        kyu:
+          type: string
+          nullable: true
+          example: "1. kyu"
+        dan:
+          type: string
+          nullable: true
+          example: null
+        dt_flexii_edit:
+          type: string
+          description: Datum poslední synchronizace z Flexii
+          example: "01.01.2026 08:00"
+        dt_match_end:
+          type: string
+          nullable: true
+          example: null
+        club:
+          $ref: "#/components/schemas/Club"
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+
+    MemberDetail:
+      allOf:
+        - $ref: "#/components/schemas/Member"
+        - type: object
+          properties:
+            memberCategory:
+              type: array
+              items:
+                $ref: "#/components/schemas/MemberCategory"
+
+    Club:
+      type: object
+      properties:
+        uid:
+          type: string
+          example: "CLB-001"
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+        name:
+          type: string
+          example: "JK Pardubice"
+        abbreviation:
+          type: string
+          example: "JKP"
+        short_name:
+          type: string
+          example: "Pardubice"
+        country:
+          type: string
+          example: "Česká republika"
+        country_alpha2:
+          type: string
+          example: "CZ"
+        country_alpha3:
+          type: string
+          example: "CZE"
+        location:
+          type: string
+          example: "Pardubice"
+        city:
+          type: string
+          example: "Pardubice"
+
+    ClubDetail:
+      allOf:
+        - $ref: "#/components/schemas/Club"
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/Member"
+
+    Admin:
+      type: object
+      properties:
+        uid:
+          type: string
+          example: "ADM-001"
+        full_name:
+          type: string
+          example: "Petr Rozhodčí"
+        flexii_account:
+          type: string
+          nullable: true
+          example: "petr.rozhodci@flexii.cz"
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+        categoryAge:
+          $ref: "#/components/schemas/CategoryAge"
+        categoryPlus:
+          nullable: true
+          description: Kategorie, do které je tato sloučena
+          allOf:
+            - $ref: "#/components/schemas/Category"
+        weight_name:
+          type: string
+          example: "-60 kg"
+        weight_from:
+          type: integer
+          example: 0
+        weight_to:
+          type: integer
+          example: 60
+        priority:
+          type: integer
+          example: 1
+        status:
+          type: string
+          nullable: true
+          description: CategoryStatusEnum
+          example: "weight_finished"
+        merged_into:
+          type: integer
+          nullable: true
+          example: null
+        listed:
+          type: boolean
+          example: true
+
+    CategoryAge:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+        gender:
+          type: string
+          enum: [MALE, FEMALE, BOTH]
+          example: MALE
+        match_time:
+          type: integer
+          description: Délka zápasu v sekundách
+          example: 240
+        is_golden_score:
+          type: boolean
+          example: true
+        golden_score_time:
+          type: integer
+          nullable: true
+          description: Délka golden score v sekundách
+          example: 300
+        weight_tolerance:
+          type: number
+          format: float
+          description: Povolená odchylka váhy v kg
+          example: 0.5
+        age_name:
+          type: string
+          example: "Kadeti muži"
+        age_name_short:
+          type: string
+          example: "KM"
+        age_from:
+          type: integer
+          example: 15
+        age_to:
+          type: integer
+          example: 17
+        listed:
+          type: boolean
+          example: true
+
+    SubCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        category:
+          $ref: "#/components/schemas/Category"
+        draw_system:
+          type: string
+          description: Typ turnajového pavouka (DrawSystemEnum)
+          example: "Spider"
+        draw_system_extra:
+          type: string
+          nullable: true
+          example: null
+        status:
+          type: string
+          description: SubCategoryStatusEnum
+          example: "STATUS_SHUFFLED"
+        is_repechage:
+          type: boolean
+          nullable: true
+          example: true
+        is_one_third_place:
+          type: boolean
+          nullable: true
+          example: false
+        priority:
+          type: integer
+          example: 1
+        weight:
+          type: number
+          format: float
+          nullable: true
+          description: Výsledná váha skupiny (pro smíšené kategorie)
+          example: null
+        customName:
+          type: string
+          nullable: true
+          example: null
+        additional_weighting_enabled:
+          type: boolean
+          nullable: true
+          example: false
+
+    MemberCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        is_approved:
+          type: boolean
+          description: Přihláška schválena po vážení
+          example: true
+        is_preregistered:
+          type: boolean
+          description: Předregistrace (bez váhy)
+          example: false
+        starting_number:
+          type: integer
+          nullable: true
+          example: 42
+        weight:
+          type: number
+          format: float
+          nullable: true
+          description: Naměřená váha v kg
+          example: 59.8
+        seeding:
+          type: integer
+          description: Nasazení v pavouku
+          example: 1
+        member:
+          $ref: "#/components/schemas/Member"
+        scale:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Scale"
+        categoryAgePreregistered:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CategoryAge"
+        categoryAge:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CategoryAge"
+        categoryPreregistered:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Category"
+        category:
+          $ref: "#/components/schemas/Category"
+
+    Scale:
+      type: object
+      properties:
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+        name:
+          type: string
+          example: "Váha 1"
+
+    Tatami:
+      type: object
+      properties:
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+        name:
+          type: string
+          example: "Tatami A"
+
+    TatamiMatch:
+      type: object
+      properties:
+        tatami:
+          $ref: "#/components/schemas/Tatami"
+        tournament_match:
+          $ref: "#/components/schemas/TournamentMatch"
+        admin:
+          $ref: "#/components/schemas/Admin"
+
+    TournamentMatch:
+      type: object
+      properties:
+        sub_category:
+          $ref: "#/components/schemas/SubCategory"
+        sub_category_match_number:
+          type: integer
+          description: Pořadové číslo zápasu v rámci párovací skupiny
+          example: 1
+        status:
+          type: string
+          description: MatchStatusEnum
+          example: "finished"
+        is_blue_winner:
+          type: boolean
+          description: "true = modrý závodník vyhrál, false = bílý"
+          example: true
+        match_data:
+          type: object
+          description: Skóre zápasu (ippon, wazari, shido, hansoku-make pro oba závodníky)
+          properties:
+            blue_ippon: { type: integer, example: 1 }
+            blue_wazari: { type: integer, example: 0 }
+            blue_shido: { type: integer, example: 0 }
+            blue_hansoku_make: { type: boolean, example: false }
+            white_ippon: { type: integer, example: 0 }
+            white_wazari: { type: integer, example: 0 }
+            white_shido: { type: integer, example: 2 }
+            white_hansoku_make: { type: boolean, example: false }
+            round: { type: integer, nullable: true, example: 4 }
+            round_name: { type: string, nullable: true, example: "Final" }
+
+    TournamentMatchData:
+      type: object
+      description: JSON snapshot stavu zápasu uložený při každé změně (auditní log)
+      properties:
+        timestamp:
+          type: string
+          example: "31.05.2026 10:45:30"
+        match_data:
+          type: object
+          description: Libovolný JSON objekt zachycující stav zápasu v daném okamžiku
+
+    Table:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/Category"
+        priority:
+          type: integer
+          example: 1
+        number_of_members:
+          type: integer
+          example: 8
+
+    # ─── REQUEST SCHEMAS ─────────────────────────────────────────────────────
+
+    RequestTournament:
+      type: object
+      required:
+        - uid
+        - tournament_csju_id
+        - name
+        - location
+        - street
+        - city
+        - postal_code
+        - country
+        - tatami_count
+        - scale_count
+        - type
+      properties:
+        uid:
+          type: string
+          example: "TRN-2026-001"
+        tournament_csju_id:
+          type: string
+          example: "12345"
+        name:
+          type: string
+          example: "Mistrovství ČR 2026"
+        dt_tournament_start:
+          type: string
+          nullable: true
+          description: "Formát: d.m.Y H:i"
+          example: "15.05.2026 09:00"
+        dt_tournament_end:
+          type: string
+          nullable: true
+          description: "Formát: d.m.Y H:i"
+          example: "15.05.2026 18:00"
+        dt_term_for_registration:
+          type: string
+          nullable: true
+          description: "Formát: d.m.Y H:i"
+          example: "01.05.2026 23:59"
+        location:
+          type: string
+          example: "Sportovní hala Pardubice"
+        tatami_count:
+          type: integer
+          example: 6
+        scale_count:
+          type: integer
+          example: 3
+        tournament_starting_fee:
+          type: integer
+          nullable: true
+          example: 500
+        web_link_for_registration:
+          type: string
+          nullable: true
+          example: "https://judo.cz/registrace"
+        street:
+          type: string
+          example: "Sukova"
+        street_number:
+          type: string
+          nullable: true
+          example: "1784"
+        house_number:
+          type: string
+          nullable: true
+          example: "2"
+        city:
+          type: string
+          example: "Pardubice"
+        postal_code:
+          type: string
+          example: "530 02"
+        country:
+          type: string
+          example: "CZ"
+        region:
+          type: string
+          nullable: true
+          example: "Pardubický kraj"
+        type:
+          type: string
+          example: "national"
+        is_approved:
+          type: boolean
+          default: false
+          example: false
+
+    RequestMember:
+      type: object
+      required:
+        - uid
+        - tournament_uid
+        - club_uid
+        - member_csju_id
+        - firstname
+        - lastname
+        - gender
+        - dt_birth
+        - dt_flexii_edit
+      properties:
+        uid:
+          type: string
+          example: "MBR-001"
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        club_uid:
+          type: string
+          example: "CLB-001"
+        member_csju_id:
+          type: string
+          example: "CZ123456"
+        firstname:
+          type: string
+          example: "Jan"
+        lastname:
+          type: string
+          example: "Novák"
+        gender:
+          type: string
+          enum: [MALE, FEMALE, BOTH]
+          example: MALE
+        dt_birth:
+          type: string
+          description: "Formát: d.m.Y"
+          example: "15.03.2005"
+        dt_birthyear:
+          type: integer
+          nullable: true
+          example: 2005
+        kyu:
+          type: string
+          nullable: true
+          example: "1. kyu"
+        dan:
+          type: string
+          nullable: true
+          example: null
+        dt_flexii_edit:
+          type: string
+          description: "Formát: d.m.Y H:i"
+          example: "01.01.2026 08:00"
+
+    RequestClub:
+      type: object
+      required:
+        - uid
+        - tournament_uid
+        - name
+        - abbreviation
+        - short_name
+        - country
+        - country_alpha2
+        - country_alpha3
+      properties:
+        uid:
+          type: string
+          example: "CLB-001"
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        name:
+          type: string
+          example: "JK Pardubice"
+        abbreviation:
+          type: string
+          example: "JKP"
+        short_name:
+          type: string
+          example: "Pardubice"
+        country:
+          type: string
+          example: "Česká republika"
+        country_alpha2:
+          type: string
+          example: "CZ"
+        country_alpha3:
+          type: string
+          example: "CZE"
+        location:
+          type: string
+          nullable: true
+          example: "Pardubice"
+        city:
+          type: string
+          nullable: true
+          example: "Pardubice"
+
+    RequestAdmin:
+      type: object
+      required:
+        - uid
+        - tournament_uid
+        - full_name
+      properties:
+        uid:
+          type: string
+          example: "ADM-001"
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        full_name:
+          type: string
+          example: "Petr Rozhodčí"
+        password:
+          type: string
+          nullable: true
+          description: Hashované heslo
+          example: null
+        flexii_account:
+          type: string
+          nullable: true
+          example: "petr.rozhodci@flexii.cz"
+
+    RequestCategory:
+      type: object
+      required:
+        - tournament_uid
+        - categoryAge_id
+        - weight_name
+        - weight_from
+        - weight_to
+        - priority
+        - listed
+      properties:
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        categoryAge_id:
+          type: integer
+          example: 1
+        categoryPlus_id:
+          type: integer
+          nullable: true
+          description: ID kategorie, do které se tato slučuje
+          example: null
+        weight_name:
+          type: string
+          example: "-60 kg"
+        weight_from:
+          type: integer
+          example: 0
+        weight_to:
+          type: integer
+          example: 60
+        priority:
+          type: integer
+          example: 1
+        listed:
+          type: boolean
+          example: true
+
+    RequestCategoryAge:
+      type: object
+      required:
+        - tournament_uid
+        - gender
+        - age_name
+        - age_name_short
+        - age_from
+        - age_to
+        - listed
+        - match_time
+        - is_golden_score
+        - weight_tolerance
+      properties:
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        age_name:
+          type: string
+          example: "Kadeti muži"
+        age_name_short:
+          type: string
+          example: "KM"
+        age_from:
+          type: integer
+          example: 15
+        age_to:
+          type: integer
+          example: 17
+        listed:
+          type: boolean
+          example: true
+        gender:
+          type: string
+          enum: [MALE, FEMALE, BOTH]
+          example: MALE
+        match_time:
+          type: integer
+          description: Délka zápasu v sekundách
+          example: 240
+        is_golden_score:
+          type: boolean
+          example: true
+        golden_score_time:
+          type: integer
+          nullable: true
+          description: Délka golden score v sekundách
+          example: 300
+        weight_tolerance:
+          type: number
+          format: float
+          description: Povolená odchylka váhy v kg
+          example: 0.5
+
+    RequestMemberCategory:
+      type: object
+      required:
+        - tournament_uid
+        - member_uid
+      properties:
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        member_uid:
+          type: string
+          example: "MBR-001"
+        weight:
+          type: number
+          format: float
+          nullable: true
+          description: Naměřená váha v kg
+          example: 59.8
+        categoryAgePreregistered_id:
+          type: integer
+          nullable: true
+          description: ID věkové kategorie při předregistraci
+          example: null
+        categoryAge_id:
+          type: integer
+          nullable: true
+          description: ID věkové kategorie po vážení
+          example: 1
+        categoryPreregistered_id:
+          type: integer
+          nullable: true
+          description: ID hmotnostní kategorie při předregistraci
+          example: null
+        category_id:
+          type: integer
+          nullable: true
+          description: ID hmotnostní kategorie po vážení
+          example: 1
+        is_preregistered:
+          type: boolean
+          default: false
+          example: false
+
+    RequestScale:
+      type: object
+      required:
+        - tournament_uid
+        - name
+        - password
+      properties:
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        name:
+          type: string
+          example: "Váha 1"
+        password:
+          type: string
+          description: Přihlašovací heslo pro scale operátora
+          example: "scale123"
+
+    RequestTatami:
+      type: object
+      required:
+        - tournament_uid
+        - name
+        - password
+        - priority
+      properties:
+        tournament_uid:
+          type: string
+          example: "TRN-2026-001"
+        name:
+          type: string
+          example: "Tatami A"
+        password:
+          type: string
+          description: Přihlašovací heslo pro tatami operátora
+          example: "tatami123"
+        priority:
+          type: integer
+          example: 1
+        tatami_matches_ids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+          description: Seznam ID přidělených tatami-match slotů
+          example: [1, 2, 3]
+
+    RequestTable:
+      type: object
+      required:
+        - category_id
+        - number_of_members
+        - priority
+      properties:
+        category_id:
+          type: integer
+          example: 1
+        number_of_members:
+          type: integer
+          example: 8
+        priority:
+          type: integer
+          example: 1
+
+    # ─── API RESPONSE WRAPPERS ───────────────────────────────────────────────
+
+    ApiResponseTournamentCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Tournament"
+          description: Mapa turnajů (klíč = uid turnaje)
+
+    ApiResponseTournamentDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/TournamentDetail"
+
+    ApiResponseMemberCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Member"
+          description: Mapa závodníků (klíč = uid závodníka)
+
+    ApiResponseMemberDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/MemberDetail"
+
+    ApiResponseClubCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Club"
+
+    ApiResponseClubDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/ClubDetail"
+
+    ApiResponseAdminCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Admin"
+
+    ApiResponseAdminDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/Admin"
+
+    ApiResponseCategoryCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Category"
+
+    ApiResponseCategoryDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/Category"
+
+    ApiResponseCategoryAgeCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/CategoryAge"
+
+    ApiResponseCategoryAgeDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/CategoryAge"
+
+    ApiResponseSubCategoryCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/SubCategory"
+
+    ApiResponseSubCategoryDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/SubCategory"
+
+    ApiResponseMemberCategoryCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MemberCategory"
+
+    ApiResponseMemberCategoryDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/MemberCategory"
+
+    ApiResponseScaleCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Scale"
+
+    ApiResponseScaleDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/Scale"
+
+    ApiResponseTatamiCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Tatami"
+
+    ApiResponseTatamiDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/Tatami"
+
+    ApiResponseTatamiMatchCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TatamiMatch"
+
+    ApiResponseTatamiMatchDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/TatamiMatch"
+
+    ApiResponseTournamentMatchCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TournamentMatch"
+
+    ApiResponseTournamentMatchDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/TournamentMatch"
+
+    ApiResponseTournamentMatchDataCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TournamentMatchData"
+
+    ApiResponseTournamentMatchDataDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/TournamentMatchData"
+
+    ApiResponseTableCollection:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Table"
+
+    ApiResponseTableDetail:
+      type: object
+      properties:
+        app: { $ref: "#/components/schemas/ApiMeta" }
+        response:
+          $ref: "#/components/schemas/Table"
+
+  # ─── RESPONSES ─────────────────────────────────────────────────────────────
+
+  responses:
+    BadRequest:
+      description: Nevalidní data – chybějící nebo nesprávná povinná pole
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponseError"
+          example:
+            app:
+              datetime: "2026-05-31 09:00:00"
+              version: 1.0
+            response:
+              code: 400
+              status: error
+              message: 'Received data for entity "RequestTournamentDto" is invalid due to missing or corrupted properties: "name".'
+              requiredProperties: [uid, tournament_csju_id, name]
+              invalidProperties: [name]
+
+    Unauthorized:
+      description: Chybějící nebo neplatný API token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponseError"
+          example:
+            app:
+              datetime: "2026-05-31 09:00:00"
+              version: 1.0
+            response:
+              code: 401
+              status: error
+              message: "Unauthorized"
+
+    NotFound:
+      description: Entita nenalezena
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponseError"
+          example:
+            app:
+              datetime: "2026-05-31 09:00:00"
+              version: 1.0
+            response:
+              code: 404
+              status: error
+              message: "Tournament UID abc123 not found."
+
+    NotAcceptable:
+      description: Požadavek nelze zpracovat (např. duplicita entity nebo chybějící vazba)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponseError"
+          example:
+            app:
+              datetime: "2026-05-31 09:00:00"
+              version: 1.0
+            response:
+              code: 406
+              status: error
+              message: "Linked entity was not found."
+
+    InternalError:
+      description: Interní chyba serveru
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponseError"
+          example:
+            app:
+              datetime: "2026-05-31 09:00:00"
+              version: 1.0
+            response:
+              code: 500
+              status: error
+              message: "Application encountered an internal error, exception was logged. Please try again later."

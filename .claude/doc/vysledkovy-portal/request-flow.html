@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tok requestu — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; }
+  pre { background: #f5f5f5; border-left: 4px solid #3949ab; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; line-height: 1.6; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .flow-label { background: #1a237e; color: #fff; padding: 3px 12px; border-radius: 4px; font-size: 13px; display: inline-block; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Tok requestu — Judo Výsledkový portál</h1>
+
+<h2>Obecný tok (HTML stránka)</h2>
+<span class="flow-label">Browser → Twig HTML</span>
+<pre>
+Browser
+  → GET /tournaments/uid/ABC123
+  → public/index.php  (Symfony entry point)
+  → Kernel.php  (bootstrap)
+  → Router  (attribute-based, matchuje na TournamentsController::detail)
+  → TournamentsController::detail($uid)
+      → TournamentService::getTournamentByUID($uid)
+          → AppCacheService::get('tournament_uid_ABC123')
+              ✓ cache hit  → vrátí Tournament entitu
+              ✗ cache miss → TournamentsRepository::getTournament($uid)
+                              → EDA query na PostgreSQL
+                              → mapování výsledku na Tournament entitu
+                              → AppCacheService::set(...)
+      → TournamentService::getTournamentAgeCategories($uid)
+          → (stejný cache pattern)
+      → render('tournaments/detail.html.twig', [...])
+          → Twig engine
+          → Twig komponenty (BasicInfoComponent, AgeCategoryPicker, ...)
+  ← HTML response
+</pre>
+
+<h2>Tok API requestu (datagrid JSON)</h2>
+<span class="flow-label">JS datagrid → JsonResponse</span>
+<pre>
+Browser (JavaScript datagrid)
+  → GET /api/tournament?queryData={page:1,pageSize:25,...}&tournament_states=active
+  → TournamentsController::datagridData()
+      → deserializace QueryParams z JSON
+      → TournamentService::getTournamentsDatagridData(QueryParams, states[])
+          → AppCacheService::get('datagrid_tournaments_...')
+              ✓ hit  → vrátí EntitySetDTO
+              ✗ miss → TournamentsRepository::getDatagridData(QueryParams, states)
+                         → BaseRepository::getDatagridFlow()
+                         → EDA: applyFilters(), applySort(), pagination
+                         → SELECT z DWH tabulky s WHERE, ORDER BY, LIMIT
+                         → mapování na TournamentRowDTO[]
+                         → EntitySetDTO { data: DTO[], itemsCount: N }
+  ← JsonResponse { data: [...], itemsCount: N, countText: "Nalezeno 42 výsledků" }
+</pre>
+
+<h2>Tok live dat (Hajime API)</h2>
+<span class="flow-label">Browser → Hajime live API</span>
+<pre>
+Browser
+  → GET /tournaments/uid/ABC123/matches
+  → TournamentsController::matches($uid)
+      → TournamentService::getTournamentMatches($uid)
+          → ITournamentDetailRepository  (impl.: TournamentDetailHajimeRepository)
+              → HajimeEndpoint::getMatchesJSON($uid, $subcategoryId)
+                  → AppCacheService::get('hajime_api_matches_...')  [krátký TTL]
+                      ✗ miss → HTTP GET HAJIME_URL/api/open/tournament/{uid}/subcategory-matches/{id}
+                              → parsování JSON odpovědi
+                              → mapování na TournamentMatchDTO[]
+  ← HTML se živými zápasy
+</pre>
+
+<h2>Tok CLI commandu (cron job)</h2>
+<span class="flow-label">cron → Flexii API → filesystem</span>
+<pre>
+cron: php bin/console app:get-tournaments
+  → GetTournamentsCommand::execute()
+      → FlexiiRepository::getTournamentsFromFlexii()
+          → HTTP GET na Flexii API
+          → parsování odpovědi
+      → pro každý turnaj:
+          → porovnání dt_upd_attributes s lokálním stavem
+          → FlexiiRepository::getTournamentResultFilesFromFlexiiIfUpdated($uid)
+              → HTTP GET souboru z Flexii
+              → uložení do public/files/tournaments/{uid}/
+</pre>
+
+<h2>Tok exportu</h2>
+<span class="flow-label">Browser → BinaryFileResponse (PDF/XLSX)</span>
+<pre>
+Browser
+  → GET /tournaments/uid/ABC123/export_results?format=pdf&category=...
+  → TournamentsController::export_results()
+      → TournamentService::getResultsForAgeCategory(...)
+      → ExportService::exportResultsToPdf($results)
+          → mPDF: generování PDF
+          → uložení do var/tmp/results_ABC123.pdf
+      → BinaryFileResponse
+  ← PDF file download
+</pre>
+
+<h2>Cache strategie</h2>
+<table>
+  <tr><th>Data</th><th>Cache klíč (příklad)</th><th>TTL</th></tr>
+  <tr><td>Detail turnaje</td><td>tournament_uid_{uid}</td><td>CACHE_EXPIRATION_SECONDS</td></tr>
+  <tr><td>Seznam turnajů (datagrid)</td><td>datagrid_tournaments_{hash}</td><td>CACHE_EXPIRATION_SECONDS</td></tr>
+  <tr><td>Detail člena</td><td>member_uid_{uid}</td><td>CACHE_EXPIRATION_SECONDS</td></tr>
+  <tr><td>Hajime live zápasy</td><td>hajime_api_matches_{uid}_{id}</td><td>CACHE_EXPIRATION_SECONDS_LIVE_RESULTS</td></tr>
+  <tr><td>Hajime live shuffle</td><td>hajime_api_shuffle_{uid}_{id}</td><td>CACHE_EXPIRATION_SECONDS_LIVE_RESULTS</td></tr>
+  <tr><td>Vyhledávání</td><td>search_{type}_{query}</td><td>CACHE_EXPIRATION_SECONDS</td></tr>
+</table>
+<p>Live data (Hajime) mají výrazně kratší TTL než archivní data (DWH).</p>
+
+<h2>Typy HTTP responses</h2>
+<table>
+  <tr><th>Typ</th><th>Kdy</th></tr>
+  <tr><td>HTML (Twig)</td><td>Všechny stránky — GET bez /api</td></tr>
+  <tr><td>JsonResponse</td><td>Všechny /api/* endpointy</td></tr>
+  <tr><td>BinaryFileResponse</td><td>Export PDF/XLSX, stažení výsledkového souboru</td></tr>
+  <tr><td>RedirectResponse</td><td>/ → /tournaments/active</td></tr>
+</table>
+
+</body>
+</html>

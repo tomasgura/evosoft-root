@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uživatelská dokumentace — Judo Výsledkový portál</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+  h2 { color: #283593; margin-top: 40px; border-bottom: 1px solid #c5cae9; padding-bottom: 6px; }
+  h3 { color: #3949ab; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c5cae9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8eaf6; }
+  code { background: #e8eaf6; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  ol li, ul li { margin: 6px 0; }
+  .info { background: #e3f2fd; border-left: 4px solid #1565c0; padding: 12px 16px; border-radius: 4px; margin: 12px 0; }
+  .workflow { background: #f3e5f5; border-left: 4px solid #7b1fa2; padding: 14px 18px; border-radius: 4px; margin: 12px 0; }
+  hr { border: none; border-top: 2px dashed #c5cae9; margin: 40px 0; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .tab { background: #1a237e; color: #fff; padding: 4px 14px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Uživatelská dokumentace — Judo Výsledkový portál</h1>
+
+<h2>K čemu portál slouží</h2>
+<ul>
+  <li>Procházet <strong>seznam judistických turnajů</strong> (plánovaných, probíhajících, archivních)</li>
+  <li>Sledovat <strong>live výsledky</strong> probíhajících turnajů</li>
+  <li>Prohlížet <strong>výsledky</strong> a <strong>losování</strong> (pavouk/tabulka) z jednotlivých kategorií</li>
+  <li>Vyhledávat <strong>zápasnické členy</strong> a zobrazit jejich kariérní statistiky</li>
+  <li>Procházet <strong>kluby</strong> a seznam jejich členů</li>
+  <li>Exportovat výsledky do <strong>PDF</strong> nebo <strong>XLSX</strong></li>
+</ul>
+
+<hr>
+
+<h2>Turnaje <code>/tournaments</code></h2>
+
+<div class="tabs">
+  <span class="tab">Aktuální</span>
+  <span class="tab">Plánované</span>
+  <span class="tab">Archiv</span>
+</div>
+
+<h3>Co zobrazuje seznam</h3>
+<ul>
+  <li>Název a typ turnaje</li>
+  <li>Pořádající klub a místo konání</li>
+  <li>Datum konání</li>
+  <li>Příznak: mezinárodní, žebříčkový</li>
+  <li>Stav turnaje</li>
+</ul>
+
+<h3>Detail turnaje — záložky</h3>
+<table>
+  <tr><th>Záložka</th><th>Obsah</th></tr>
+  <tr><td>Základní info</td><td>Název, pořadatel, datum, místo, ředitel</td></tr>
+  <tr><td>Výsledky</td><td>Výběr věkové kategorie + podkategorie, výsledková listina</td></tr>
+  <tr><td>Zápasy</td><td>Live nebo archivní přehled zápasů s tatami</td></tr>
+  <tr><td>Tabulky</td><td>Losovací diagram (pavouk nebo round-robin)</td></tr>
+  <tr><td>Statistiky</td><td>Počty zápasnících, zápasů, tatami</td></tr>
+  <tr><td>Videa</td><td>Embedded YouTube videa</td></tr>
+  <tr><td>Přihlášení</td><td>Seznam přihlášených zápasnických</td></tr>
+</table>
+
+<div class="workflow">
+  <strong>Jak zobrazit výsledky kategorie:</strong>
+  <ol>
+    <li>Otevři záložku <strong>Výsledky</strong></li>
+    <li>Vyber věkovou kategorii (např. Muži)</li>
+    <li>Vyber podkategorii — váhová skupina (např. -66 kg)</li>
+    <li>Zobrazí se výsledková listina s pořadím</li>
+  </ol>
+</div>
+
+<h3>Export výsledků</h3>
+<p>Tlačítka <strong>PDF</strong> a <strong>XLSX</strong> na záložce Výsledky stáhnou soubor se všemi věkovými kategoriemi.</p>
+
+<hr>
+
+<h2>Členové <code>/members</code></h2>
+<p>Seznam zápasnických členů s filtrem a řazením.</p>
+
+<h3>Detail člena — záložky</h3>
+<table>
+  <tr><th>Záložka</th><th>Obsah</th></tr>
+  <tr><td>Základní info</td><td>Jméno, věk, klub, technický stupeň (kyu/dan)</td></tr>
+  <tr><td>Statistiky</td><td>Počty turnajů, vítězství, porážek</td></tr>
+  <tr><td>Turnaje</td><td>Historia účasti na turnajích</td></tr>
+  <tr><td>Zápasy</td><td>Přehled zápasů se soupeři a výsledky</td></tr>
+</table>
+
+<hr>
+
+<h2>Kluby <code>/clubs</code></h2>
+<p>Seznam judistických klubů s kontaktními informacemi, logem a přehledem členů.</p>
+
+<hr>
+
+<h2>Vyhledávání</h2>
+<div class="info">
+  Rychlé vyhledávání v navigaci hledá <strong>turnaje, členy i kluby</strong> najednou. Zobrazuje výsledky průběžně od 2 zadaných znaků.
+</div>
+
+<div class="workflow">
+  <strong>Jak najít výsledky konkrétního zápasnického:</strong>
+  <ol>
+    <li>Do vyhledávacího pole zadej jméno</li>
+    <li>Klikni na výsledek → otevře se profil člena</li>
+    <li>Na záložce <strong>Turnaje</strong> vyber turnaj</li>
+    <li>Přejdeš na výsledky daného turnaje</li>
+  </ol>
+</div>
+
+<hr>
+
+<h2>Live výsledky (probíhající turnaje)</h2>
+<div class="info">
+  <ul>
+    <li>Data se aktualizují automaticky každých ~60 sekund</li>
+    <li>Dostupné jen pro turnaje se systémem Hajime</li>
+    <li>Není nutné obnovovat stránku ručně</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>Tlačítka a akce</h2>
+<table>
+  <tr><th>Prvek</th><th>Akce</th></tr>
+  <tr><td>Záložky Aktuální / Plánované / Archiv</td><td>Přepnutí filtru stavu turnajů</td></tr>
+  <tr><td>Hlavička sloupce</td><td>Seřazení (klik = ASC, znovu = DESC)</td></tr>
+  <tr><td>Ikona filtru ve sloupci</td><td>Otevření filtru pro sloupec</td></tr>
+  <tr><td>Výběr věkové kategorie</td><td>Načte výsledky pro kategorii</td></tr>
+  <tr><td>Výběr podkategorie (váha)</td><td>Načte výsledky pro váhovou skupinu</td></tr>
+  <tr><td>Tlačítko PDF</td><td>Stáhne výsledky ve formátu PDF</td></tr>
+  <tr><td>Tlačítko XLSX</td><td>Stáhne výsledky ve formátu Excel</td></tr>
+  <tr><td>Jméno zápasnického</td><td>Přejde na profil člena</td></tr>
+  <tr><td>Název turnaje</td><td>Přejde na detail turnaje</td></tr>
+  <tr><td>Název klubu</td><td>Přejde na detail klubu</td></tr>
+</table>
+
+<h2>Možné chyby</h2>
+<table>
+  <tr><th>Chyba</th><th>Příčina</th><th>Co dělat</th></tr>
+  <tr><td>Výsledky nejsou aktuální</td><td>DWH ETL ještě neproběhl nebo cache</td><td>Počkat, kontaktovat správce</td></tr>
+  <tr><td>Live zápasy se nezobrazují</td><td>Hajime API není dostupné</td><td>Kontaktovat správce</td></tr>
+  <tr><td>Export nefunguje</td><td>Server error při generování</td><td>Zkusit znovu, kontaktovat správce</td></tr>
+  <tr><td>Vyhledávání nenajde nic</td><td>Překlep nebo data nejsou v DWH</td><td>Zkusit variaci jména</td></tr>
+  <tr><td>500 chyba</td><td>Chyba serveru</td><td>Kontaktovat správce</td></tr>
+</table>
+
+</body>
+</html>

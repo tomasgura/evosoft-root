@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hajime – Základní architektura</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; line-height: 1.65; color: #1a1a2e; background: #f0f2f8; }
+    a { color: #0d6efd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .layout { display: flex; min-height: 100vh; }
+    nav { width: 260px; min-width: 220px; background: #0d1b2a; color: #b0c4d8; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+    nav .brand { padding: 20px 20px 16px; background: #071626; border-bottom: 1px solid #1e3a52; }
+    nav .brand h1 { font-size: 19px; color: #fff; font-weight: 800; }
+    nav .brand p { font-size: 11px; color: #6a8faa; margin-top: 3px; }
+    nav ul { list-style: none; }
+    nav ul li a { display: block; padding: 7px 20px; color: #b0c4d8; font-size: 13px; border-left: 3px solid transparent; transition: background 0.12s; }
+    nav ul li a:hover { background: #162a3e; color: #e0ecfa; border-left-color: #0d6efd; text-decoration: none; }
+    nav ul li.section { padding: 14px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #3d6080; font-weight: 700; }
+    main { flex: 1; padding: 36px 48px 60px; max-width: 960px; }
+    h1 { font-size: 30px; font-weight: 800; color: #0d1b2a; margin-bottom: 8px; }
+    h2 { font-size: 21px; color: #0d1b2a; margin: 40px 0 14px; padding-top: 10px; border-top: 2px solid #dde3ee; }
+    h3 { font-size: 16px; color: #1a3a5c; margin: 22px 0 9px; font-weight: 700; }
+    h4 { font-size: 14px; color: #234; margin: 16px 0 7px; font-weight: 700; }
+    p { margin-bottom: 12px; color: #2a2a3e; }
+    ul, ol { margin: 0 0 14px 22px; }
+    li { margin-bottom: 4px; color: #2a2a3e; }
+    .table-wrap { overflow-x: auto; margin: 14px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+    th { background: #0d1b2a; color: #e0ecfa; text-align: left; padding: 9px 13px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 8px 13px; border-bottom: 1px solid #e3e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f9fd; }
+    tr:hover td { background: #edf2ff; }
+    pre { background: #0d1b2a; color: #c8d8e8; padding: 18px 22px; border-radius: 8px; overflow-x: auto; font-size: 12.5px; margin: 14px 0; line-height: 1.55; border-left: 4px solid #0d6efd; }
+    code { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; background: #eef2ff; padding: 2px 5px; border-radius: 3px; color: #0d6efd; }
+    pre code { background: transparent; color: inherit; padding: 0; font-size: 12.5px; }
+    blockquote { border-left: 4px solid #0d6efd; background: #e7f3ff; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; color: #1a3a5c; font-style: italic; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 12px; margin: 3px 3px 0 0; font-weight: 600; background: #e7f0ff; color: #0d6efd; }
+    footer { margin-top: 60px; padding: 18px 0; border-top: 1px solid #dde3ee; color: #888; font-size: 13px; }
+    /* Visual layer diagram */
+    .layer-diagram { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 24px 0; }
+    .layer-box { width: 100%; max-width: 700px; border-radius: 10px; padding: 14px 20px; text-align: center; }
+    .layer-box .layer-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .layer-box .layer-sub { font-size: 12px; opacity: 0.85; }
+    .layer-arrow { width: 2px; height: 24px; background: #94a3b8; margin: 0 auto; position: relative; }
+    .layer-arrow::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #94a3b8; }
+    .layer-split-wrap { width: 100%; max-width: 700px; display: flex; flex-direction: column; align-items: center; }
+    .layer-split-junction { width: 52%; height: 24px; border-left: 2px solid #94a3b8; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; margin: 0 auto; border-radius: 0 0 6px 6px; }
+    .layer-split { display: flex; gap: 16px; width: 100%; }
+    .layer-split .layer-box { flex: 1; }
+    .layer-split-merge { width: 52%; height: 24px; border-left: 2px solid #94a3b8; border-right: 2px solid #94a3b8; border-top: 2px solid #94a3b8; margin: 0 auto; border-radius: 6px 6px 0 0; }
+    .lc-entry { background: #1e3a5f; border: 2px solid #3b82f6; color: #e0f0ff; }
+    .lc-api   { background: #1a3550; border: 2px solid #60a5fa; color: #bfdbfe; }
+    .lc-mvc   { background: #1e3550; border: 2px solid #818cf8; color: #c7d2fe; }
+    .lc-biz   { background: #1a3340; border: 2px solid #34d399; color: #d1fae5; }
+    .lc-orm   { background: #1a2e40; border: 2px solid #fbbf24; color: #fef3c7; }
+    .lc-db    { background: #1a2535; border: 2px solid #f97316; color: #ffedd5; }
+    /* Domain tree */
+    .domain-tree { background: #f8f9fc; border: 1px solid #dde3ee; border-radius: 10px; padding: 20px 24px; margin: 16px 0; font-size: 13.5px; line-height: 1.9; }
+    .dt-root { font-weight: 800; font-size: 15px; color: #0d1b2a; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .dt-root .dt-badge { background: #0d6efd; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700; }
+    .dt-level1 { padding-left: 20px; border-left: 3px solid #3b82f6; margin: 8px 0 8px 12px; }
+    .dt-level2 { padding-left: 20px; border-left: 3px solid #10b981; margin: 6px 0 6px 12px; }
+    .dt-level3 { padding-left: 20px; border-left: 3px solid #f59e0b; margin: 4px 0 4px 12px; }
+    .dt-level4 { padding-left: 20px; border-left: 3px solid #8b5cf6; margin: 4px 0 4px 12px; }
+    .dt-item { display: flex; align-items: baseline; gap: 8px; }
+    .dt-name { font-weight: 700; color: #0d1b2a; }
+    .dt-desc { color: #555; font-size: 12.5px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand">
+      <h1>Základ. architektura</h1>
+      <p>Analytický dokument</p>
+    </div>
+    <ul>
+      <li class="section">Obsah</li>
+      <li><a href="#1-přehled-architektury">1. Přehled architektury</a></li>
+      <li><a href="#2-hlavní-moduly">2. Hlavní moduly</a></li>
+      <li><a href="#3-tok-requestu">3. Tok requestu</a></li>
+      <li><a href="#4-datové-vrstvy">4. Datové vrstvy</a></li>
+      <li><a href="#5-externí-integrace">5. Externí integrace</a></li>
+      <li><a href="#6-riziková-místa">6. Riziková místa</a></li>
+      <li><a href="#7-doporučení-pro-onboarding-nového-developera">7. Doporučení pro onboarding</a></li>
+    </ul>
+  </nav>
+  <main>
+    <h1>Architektonická analýza – Hajime (Judo Tournament System)</h1>
+
+    <h2 id="1-přehled-architektury">1. Přehled architektury</h2>
+
+    <p><strong>Hajime</strong> je webová aplikace pro správu judo turnajů. Jedná se o vícevrstvý PHP monolitický projekt postavený na frameworku <strong>Nette 3.1+</strong> s REST API rozhraním.</p>
+
+    <div class="layer-diagram">
+      <div class="layer-box lc-entry">
+        <div class="layer-title">www/index.php</div>
+        <div class="layer-sub">Jediný vstupní bod HTTP · Bootstrap::boot() → DI Container</div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-split-wrap">
+        <div class="layer-split-junction"></div>
+        <div class="layer-split">
+          <div class="layer-box lc-api">
+            <div class="layer-title">REST API vrstva</div>
+            <div class="layer-sub">Apitte (Contributte) · 16 controllerů<br><code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px">/api/rest/…</code></div>
+          </div>
+          <div class="layer-box lc-mvc">
+            <div class="layer-title">MVC Presenters</div>
+            <div class="layer-sub">Nette\Application · Latte šablony<br><code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px">ostatní URL</code></div>
+          </div>
+        </div>
+        <div class="layer-split-merge"></div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-box lc-biz">
+        <div class="layer-title">Business vrstva</div>
+        <div class="layer-sub">DataControllers · LogicControllers · Services · Algorithms · DataStructures</div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-box lc-orm">
+        <div class="layer-title">Data vrstva – Nextras ORM</div>
+        <div class="layer-sub">Entities · Repositories · Mappers · Orm.php</div>
+      </div>
+      <div class="layer-arrow"></div>
+      <div class="layer-box lc-db">
+        <div class="layer-title">PostgreSQL · 5 schémat</div>
+        <div class="layer-sub"><code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">judo</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">base</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">configuration</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">log</code> &nbsp;<code style="font-size:11px;background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px">public</code></div>
+      </div>
+    </div>
+
+    <p><strong>Klíčové technologie:</strong></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Vrstva</th><th>Technologie</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Framework</td><td>Nette 3.1+</td></tr>
+          <tr><td>ORM</td><td>Nextras ORM 4.0</td></tr>
+          <tr><td>DBAL</td><td>Nextras DBAL 4.0</td></tr>
+          <tr><td>Databáze</td><td>PostgreSQL</td></tr>
+          <tr><td>Templating</td><td>Latte 3.0</td></tr>
+          <tr><td>REST API</td><td>Contributte/Apitte 0.12</td></tr>
+          <tr><td>Fronty</td><td>RabbitMQ (contributte/rabbitmq)</td></tr>
+          <tr><td>Migrace DB</td><td>Liquibase/Hyperdrive</td></tr>
+          <tr><td>CLI</td><td>contributte/console</td></tr>
+          <tr><td>Debugging</td><td>Tracy</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="2-hlavní-moduly">2. Hlavní moduly</h2>
+
+    <h3>Prezentační moduly (<code>app/Presentation/</code>)</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Modul</th><th>URL prefix</th><th>Účel</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>TournamentModule</code></td><td><code>/tournament/</code></td><td>Správa turnajů, kategorií, zápasů</td></tr>
+          <tr><td><code>ScaleModule</code></td><td><code>/scale/</code></td><td>Vážení závodníků</td></tr>
+          <tr><td><code>ScoreboardModule</code></td><td><code>/scoreboard/</code></td><td>Zobrazení výsledků</td></tr>
+          <tr><td><code>InfopanelModule</code></td><td><code>/infopanel/</code></td><td>Informační tabule</td></tr>
+          <tr><td><code>RestApi</code></td><td><code>/api/rest/</code></td><td>REST API (16 controllerů)</td></tr>
+          <tr><td><code>ApiModule</code></td><td><code>/api/v2/</code>, <code>/api/open/</code></td><td>Starší API</td></tr>
+          <tr><td>Globální</td><td><code>/</code></td><td>Login, homepage, chyby</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Business vrstva (<code>app/Business/</code>)</h3>
+
+<pre><code>Business/
+├── Controllers/
+│   ├── DataControllers/   # CRUD operace nad entitami
+│   └── LogicControllers/  # Komplexní byznys logika
+├── Services/              # Průřezové služby
+├── Algorithms/            # TopSort, DFS (generování pavouka)
+├── DataStructures/        # Komplexní datové objekty
+├── Enums/                 # Doménové výčty
+└── Helpers/               # Utility</code></pre>
+
+    <h3>Data vrstva (<code>app/Data/</code>)</h3>
+
+    <p>15+ repozitářů pokrývajících:</p>
+    <ul>
+      <li>Turnaje, kategorie, věkové kategorie</li>
+      <li>Závodníci, kluby, přihlášky</li>
+      <li>Tatami (zápasiště), zápasy, výsledky</li>
+      <li>Váhy, vážení</li>
+      <li>Administrátoři, info panely</li>
+    </ul>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="3-tok-requestu">3. Tok requestu</h2>
+
+    <h3>A) Web request (MVC)</h3>
+
+<pre><code>1. www/index.php
+2. Bootstrap::boot() → Nette\Configurator → DI Container
+3. Nette\Application\Application::run()
+4. RouterFactory → párování URL na Presenter:Action
+5. Presenter::startup() → autorizace
+6. Presenter::action*() → business logika
+7. Presenter::render*() → příprava dat pro šablonu
+8. Latte renderer → HTML odpověď</code></pre>
+
+    <h3>B) API request</h3>
+
+<pre><code>1. www/index.php  (detekce /api/rest/ v URI)
+2. Contributte\Middlewares middleware stack:
+   TracyMiddleware
+   → AutoBasePathMiddleware
+   → MethodOverrideMiddleware
+   → CorsMiddleware
+   → TokenMiddleware          ← ověření API tokenu
+   → VersionMiddleware
+   → ApiMiddleware            ← Apitte routing
+   → LogMiddleware
+3. Apitte Controller → anotace (@Path, @Method)
+4. Business Controllers / Services
+5. JSON odpověď (Apitte Negotiation)</code></pre>
+
+    <h3>C) CLI command</h3>
+
+<pre><code>1. bin/console.php
+2. Contributte\Console\Application
+3. Hyperdrive příkazy (migrace DB)</code></pre>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="4-datové-vrstvy">4. Datové vrstvy</h2>
+
+    <h3>ORM model (Nextras ORM)</h3>
+
+    <ul>
+      <li><strong>Entity</strong>: třídy s typed properties a vazbami (1:m, m:n)</li>
+      <li><strong>Repository</strong>: <code>findAll()</code>, <code>getBy()</code>, vlastní query metody</li>
+      <li><strong>Mapper</strong>: mapování entity → DB tabulka/schéma</li>
+      <li><strong>Orm.php</strong>: centrální registr všech repozitářů</li>
+    </ul>
+
+<pre><code>// Příklad přístupu v business vrstvě
+$this-&gt;orm-&gt;tournaments-&gt;findAll();
+$this-&gt;orm-&gt;members-&gt;getById($id);</code></pre>
+
+    <h3>PostgreSQL schémata</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Schéma</th><th>Obsah</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>judo</code></td><td>Hlavní aplikační data (turnaje, závodníci, zápasy)</td></tr>
+          <tr><td><code>base</code></td><td>Základní číselníky</td></tr>
+          <tr><td><code>configuration</code></td><td>Konfigurační záznamy</td></tr>
+          <tr><td><code>log</code></td><td>Aplikační logy</td></tr>
+          <tr><td><code>public</code></td><td>PostgreSQL výchozí</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Migrace</h3>
+
+    <ul>
+      <li>Nástroj: <strong>Hyperdrive</strong> (Liquibase-based, XML changesets)</li>
+      <li>Umístění: <code>resources/hyperdrive/</code>
+        <ul>
+          <li><code>structure/</code> – DDL migrace</li>
+          <li><code>basic-data/</code> – povinná data</li>
+          <li><code>dummy-data/</code> – vývojová testovací data</li>
+        </ul>
+      </li>
+      <li>Spuštění: <code>php bin/console.php hyperdrive:start postgre</code></li>
+    </ul>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="5-externí-integrace">5. Externí integrace</h2>
+
+    <h3>Flexii (enterprise platforma)</h3>
+    <ul>
+      <li><strong>Balíček</strong>: <code>evosoftcz/flexii-connector</code></li>
+      <li><strong>Účel</strong>: Autentizace uživatelů přes Flexii účty</li>
+      <li><strong>Konfigurace</strong>: <code>flexiiConnector.*</code> v <code>config/common.neon</code></li>
+      <li><strong>Šifrování</strong>: AES (IV + secret v konfiguraci)</li>
+    </ul>
+
+    <h3>RabbitMQ (message broker)</h3>
+    <ul>
+      <li><strong>Balíček</strong>: <code>contributte/rabbitmq</code></li>
+      <li><strong>Účel</strong>: Asynchronní zpracování eventů/jobů</li>
+      <li><strong>Konfigurace</strong>: <code>rabbitmq_connection</code>, <code>rabbitmq_queues_url</code></li>
+    </ul>
+
+    <h3>EDA (event-driven architektura)</h3>
+    <ul>
+      <li><strong>Balíček</strong>: <code>evosoftcz/eda</code></li>
+      <li><strong>Účel</strong>: Workflow zpracování na bázi DB eventů</li>
+      <li><strong>Integrace</strong>: Tracy debug panel pro EDA</li>
+    </ul>
+
+    <h3>Rights systém</h3>
+    <ul>
+      <li><strong>Balíček</strong>: <code>evosoftcz/rights</code></li>
+      <li><strong>Účel</strong>: Granulární správa oprávnění</li>
+    </ul>
+
+    <h3>SMTP (e-mail)</h3>
+    <ul>
+      <li>Nette Mail s konfigurací SMTP</li>
+      <li>Service <code>MailService</code> – šablonové e-maily</li>
+    </ul>
+
+    <h3>PDF generátor</h3>
+    <ul>
+      <li><strong>Balíček</strong>: <code>mpdf/mpdf</code></li>
+      <li><strong>Účel</strong>: Generování dokumentů (startovní listiny, výsledky)</li>
+    </ul>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="6-riziková-místa">6. Riziková místa</h2>
+
+    <h3>6.1 Nepublikovaný <code>local.neon</code></h3>
+    <p><code>config/local.neon</code> není v gitu (správně), ale <strong>bez něj aplikace spadne</strong>. Vzor: <code>config/local.example.neon</code></p>
+
+    <h3>6.2 Složitost generování pavouka</h3>
+    <p><code>app/Business/Algorithms/</code> (TopSort, DFS) + <code>ShuffleService</code> + <code>ShuffleController</code>. Netriviální logika turnajového pavouka; chybí unit testy pokrývající edge cases.</p>
+
+    <h3>6.3 Stará API vrstva (<code>ApiModule</code>)</h3>
+    <p>Vedle Apitte existuje i starší <code>ApiModule</code> (<code>/api/v2/</code>, <code>/api/open/</code>). Paralelní existence dvou API systémů zvyšuje maintenance cost.</p>
+
+    <h3>6.4 Závislost na <code>dev-master</code> / <code>dev-develop</code></h3>
+    <ul>
+      <li><code>contributte/forms-multiplier</code>: <code>dev-master</code></li>
+      <li><code>evosoftcz/tools</code>: <code>dev-develop</code></li>
+      <li><code>evosoftcz/universal-datagrid</code>: <code>dev-develop</code></li>
+    </ul>
+    <p>Nestabilní větve mohou způsobit breakage po <code>composer update</code>.</p>
+
+    <h3>6.5 Autentizace – více mechanismů</h3>
+    <p>Tři odlišné authenticatory (Basic, Flexii, SuperAdmin). Pět typů uživatelů se separátními sessions. Nutné dobře rozumět, který flow platí pro které UI.</p>
+
+    <h3>6.6 RabbitMQ jako single point of failure</h3>
+    <p>Pokud fronta nedostupná, chování aplikace závisí na fallback logice – je třeba ji dohledat.</p>
+
+    <h3>6.7 PostgreSQL multi-schema</h3>
+    <p><code>search_path</code> nastavena na 5 schémat. Při ladění SQL je třeba znát, ve kterém schématu tabulka leží.</p>
+
+    <h3>6.8 PHPStan Level 8</h3>
+    <p>Vysoká úroveň statické analýzy (pozitivní). Nové kódy musí projít přísnou typovou kontrolou, jinak CI selže.</p>
+
+    <hr style="border:none;border-top:2px solid #dde3ee;margin:24px 0">
+
+    <h2 id="7-doporučení-pro-onboarding-nového-developera">7. Doporučení pro onboarding nového developera</h2>
+
+    <h3>Krok 1 – Nastavení prostředí</h3>
+
+<pre><code># Zkopírovat a vyplnit lokální konfiguraci
+cp config/local.example.neon config/local.neon
+
+# Spustit Docker prostředí
+docker-compose up -d
+
+# Nainstalovat PHP závislosti
+composer install
+
+# Spustit migrace databáze
+php bin/console.php hyperdrive:start postgre</code></pre>
+
+    <h3>Krok 2 – Klíčové soubory k přečtení (v tomto pořadí)</h3>
+
+    <ol>
+      <li><code>config/common.neon</code> – co aplikace potřebuje ke konfiguraci</li>
+      <li><code>app/Bootstrap.php</code> – jak se inicializuje DI container</li>
+      <li><code>app/RouterFactory.php</code> – jaké URL kde končí</li>
+      <li><code>app/Data/Orm.php</code> – přehled entit a repozitářů</li>
+      <li><code>app/Presentation/RestApi/Controllers/TournamentController.php</code> – vzorový REST controller</li>
+      <li><code>app/Business/Controllers/DataControllers/</code> – vzorový data controller</li>
+    </ol>
+
+    <h3>Krok 3 – Pochopení doménového modelu</h3>
+
+    <p>Klíčový tok: <strong>Turnaj → Kategorie → Závodník → Přihláška → Tatami → Zápas → Výsledek</strong></p>
+
+    <div class="domain-tree">
+      <div class="dt-root"><span class="dt-name">Tournament</span><span class="dt-badge">root</span></div>
+      <div class="dt-level1">
+        <div class="dt-item"><span class="dt-name">Category</span><span class="dt-desc">hmotnostní třída</span></div>
+        <div class="dt-level2">
+          <div class="dt-item"><span class="dt-name">CategoryAge</span><span class="dt-desc">věková skupina</span></div>
+          <div class="dt-level3">
+            <div class="dt-item"><span class="dt-name">MemberCategory</span><span class="dt-desc">přihláška závodníka</span></div>
+            <div class="dt-level4">
+              <div class="dt-item"><span class="dt-name">Member</span><span class="dt-desc">závodník → Club</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dt-level1" style="border-left-color:#f59e0b">
+        <div class="dt-item"><span class="dt-name">Tatami</span><span class="dt-desc">zápaziště</span></div>
+        <div class="dt-level2" style="border-left-color:#f59e0b">
+          <div class="dt-item"><span class="dt-name">TatamiMatch</span><span class="dt-desc">konkrétní zápas na tatami</span></div>
+          <div class="dt-level3" style="border-left-color:#f59e0b">
+            <div class="dt-item"><span class="dt-name">TournamentMatch</span><span class="dt-desc">výsledek zápasu · skóre</span></div>
+            <div class="dt-level4" style="border-left-color:#f59e0b">
+              <div class="dt-item"><span class="dt-name">TournamentMatchData</span><span class="dt-desc">JSON data o výsledku</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Krok 4 – Vývoj nové funkce (typický pattern)</h3>
+
+    <ol>
+      <li><strong>Entita</strong> v <code>app/Data/[Doména]/[Doména]Entity.php</code></li>
+      <li><strong>Mapper</strong> v <code>app/Data/[Doména]/[Doména]Mapper.php</code> – SQL vazba</li>
+      <li><strong>Repozitář</strong> v <code>app/Data/[Doména]/[Doména]Repository.php</code></li>
+      <li><strong>Registrace</strong> v <code>app/Data/Orm.php</code></li>
+      <li><strong>DataController</strong> v <code>app/Business/Controllers/DataControllers/</code></li>
+      <li><strong>REST Controller</strong> v <code>app/Presentation/RestApi/Controllers/</code> nebo <strong>Presenter</strong> v <code>app/Presentation/[Modul]Module/Presenters/</code></li>
+      <li><strong>Migrace</strong> v <code>resources/hyperdrive/structure/</code></li>
+    </ol>
+
+    <h3>Krok 5 – Časté gotchas</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Problém</th><th>Řešení</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>ServiceNotFoundException</code></td><td>Přidat do <code>config/services.neon</code> nebo zkontrolovat autowiring</td></tr>
+          <tr><td>Nette routing 404</td><td>Zkontrolovat <code>RouterFactory.php</code>, název presenteru a akce</td></tr>
+          <tr><td>ORM mapping chyba</td><td>Zkontrolovat <code>Mapper</code> – přesný název tabulky a schéma</td></tr>
+          <tr><td>API vrací 401</td><td>API token v hlavičce <code>X-Api-Token</code> nebo parametru</td></tr>
+          <tr><td>Tracy error 500</td><td>Zapnout Tracy: <code>tracy: debugMode: true</code> v <code>config/local.neon</code></td></tr>
+          <tr><td>PHPStan selhání</td><td>Spustit <code>composer phpstan-app</code> před commitem</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Užitečné příkazy</h3>
+
+<pre><code># Statická analýza
+composer phpstan-app
+
+# Code style check / autofix
+composer cs-app
+composer cbf-app-extreme
+
+# DB migrace
+php bin/console.php hyperdrive:start postgre
+
+# Drop DB (dev)
+php bin/console.php hyperdrive:procedure postgre dropPostgre</code></pre>
+
+    <footer>Hajime – zal-architektura.html | Vygenerováno: 2026-05-31</footer>
+  </main>
+</div>
+</body>
+</html>

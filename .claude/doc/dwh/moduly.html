@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hlavní moduly — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px; }
+  h3 { color: #388e3c; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th { background: #1b5e20; color: #fff; padding: 9px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 7px 14px; vertical-align: top; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f5f5f5; border-left: 4px solid #388e3c; padding: 14px; border-radius: 4px; font-size: 13px; }
+  .badge { display: inline-block; background: #2e7d32; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 12px; margin-left: 8px; }
+  hr { border: none; border-top: 2px dashed #c8e6c9; margin: 40px 0; }
+  ul li { margin: 5px 0; }
+</style>
+</head>
+<body>
+
+<h1>Hlavní moduly — DWH</h1>
+
+<h2>DataModule <span class="badge">jádro ETL</span></h2>
+
+<h3>Presenters</h3>
+<table>
+  <tr><th>Presenter</th><th>URL prefix</th><th>Popis</th></tr>
+  <tr><td>HomepagePresenter</td><td>/data/</td><td>Dashboard</td></tr>
+  <tr><td>DatasetPresenter</td><td>/data/dataset/</td><td>Správa datasetů a entit</td></tr>
+  <tr><td>ActionPresenter</td><td>/data/action/</td><td>Spouštění ETL akcí</td></tr>
+  <tr><td>ReportingPresenter</td><td>/data/reporting/</td><td>Reporting a grafy</td></tr>
+  <tr><td>ExportPresenter</td><td>/data/export/</td><td>Export dat (XLSX, soubory)</td></tr>
+  <tr><td>QueuesPresenter</td><td>/data/queues/</td><td>Přehled RabbitMQ front</td></tr>
+</table>
+
+<h3>Services</h3>
+<table>
+  <tr><th>Service</th><th>Popis</th></tr>
+  <tr><td>DatasetActionService</td><td>Orchestrace ETL akcí (spouštění importů, transformací)</td></tr>
+  <tr><td>DatasetDataService</td><td>Čtení a manipulace s hodnotami (dataset_values)</td></tr>
+  <tr><td>DatasetHistorizingService</td><td>Archivace starých záznamů dataset_entity</td></tr>
+  <tr><td>DatasetManagerService</td><td>Lifecycle management entity (create, update, delete, lock)</td></tr>
+  <tr><td>DataSourceService</td><td>Spuštění SQL query na zdrojové DB, parsování výsledku</td></tr>
+  <tr><td>PublicationService</td><td>Export do cílových systémů (materialized views, Kafka)</td></tr>
+  <tr><td>ValidationService</td><td>Validace formátů, povinných polí, regex</td></tr>
+  <tr><td>ValueInfoService</td><td>Metadata o hodnotách (typ, stav, zdroj)</td></tr>
+</table>
+
+<h3>RabbitMQ Consumers</h3>
+<table>
+  <tr><th>Consumer</th><th>Queue</th><th>Popis</th><th>prefetchCount</th></tr>
+  <tr><td>MasterConsumer</td><td>masterQueue</td><td>Orchestrace — spouští celý import job</td><td>5</td></tr>
+  <tr><td>DataSourceConsumer</td><td>dataSourceQueue</td><td>SQL query na zdrojové DB</td><td>—</td></tr>
+  <tr><td>DataToValuesConsumer</td><td>dataToValuesQueue</td><td>Raw data → dataset_values</td><td>—</td></tr>
+  <tr><td>TransformationConsumer</td><td>transformationQueue</td><td>Transformační pravidla</td><td>—</td></tr>
+  <tr><td>EnrichmentConsumer</td><td>enrichmentQueue</td><td>Lookup join z jiných datasetů</td><td>—</td></tr>
+  <tr><td>ValidationConsumer</td><td>validationQueue</td><td>Kontrola dat</td><td>1 ⚠</td></tr>
+  <tr><td>DataQualityConsumer</td><td>dataQualityQueue</td><td>Detekce anomálií</td><td>1 ⚠</td></tr>
+  <tr><td>PublicationConsumer</td><td>publicationQueue</td><td>Export do externích systémů</td><td>—</td></tr>
+</table>
+
+<hr>
+
+<h2>AdminModule <span class="badge">konfigurace</span></h2>
+<p>UI pro nastavení datasetů, datových zdrojů a procesních pravidel.</p>
+<ul>
+  <li>DatasetPresenter — vytvoření a konfigurace datasetů</li>
+  <li>DataSourcePresenter — SQL source definice</li>
+  <li>EnrichmentPresenter — lookup enrichmenty</li>
+  <li>ValidationPresenter — validační pravidla</li>
+  <li>TransformationPresenter — transformační pravidla</li>
+</ul>
+
+<hr>
+
+<h2>SuperAdminModule <span class="badge">systém</span></h2>
+<ul>
+  <li>Správa uživatelů a rolí (RBAC)</li>
+  <li>Připojení na zdrojové DB (<code>source_connection</code>)</li>
+  <li>Globální konfigurace aplikace</li>
+  <li>API tokeny</li>
+</ul>
+
+<hr>
+
+<h2>REST API <span class="badge">/api/rest/v1/</span></h2>
+<p><strong>Autentizace:</strong> API token v hlavičce <code>apiToken</code></p>
+<table>
+  <tr><th>Controller</th><th>Prefix</th><th>Popis</th></tr>
+  <tr><td>DatasetController</td><td>/datasets/</td><td>CRUD nad datasety</td></tr>
+  <tr><td>PublicationController</td><td>/publications/</td><td>Spuštění publikace</td></tr>
+  <tr><td>EntityGroupController</td><td>/entity-groups/</td><td>Skupiny entit</td></tr>
+  <tr><td>ActionController</td><td>/actions/</td><td>Spouštění ETL akcí</td></tr>
+  <tr><td>SchemaRegistryController</td><td>/schema-registry/</td><td>Schema informace</td></tr>
+  <tr><td>DocController</td><td>/doc/</td><td>OpenAPI dokumentace</td></tr>
+</table>
+
+<hr>
+
+<h2>CLI Commands</h2>
+<table>
+  <tr><th>Command</th><th>Popis</th></tr>
+  <tr><td><code>app:job-queue</code></td><td>Zpracování background jobů (spouštět cronem)</td></tr>
+  <tr><td><code>app:index-rebuild</code></td><td>Rebuild DB indexů</td></tr>
+  <tr><td><code>app:dataset-entity-historization</code></td><td>Archivace starých záznamů</td></tr>
+  <tr><td><code>app:database-views-rebuild</code></td><td>Rebuild materializovaných pohledů</td></tr>
+  <tr><td><code>rabbitmq:staticConsumer &lt;name&gt; &lt;timeout&gt;</code></td><td>Spuštění jednoho consumera</td></tr>
+  <tr><td><code>rabbitmq:declareQueuesAndExchanges</code></td><td>Inicializace RabbitMQ topologie</td></tr>
+  <tr><td><code>hyperdrive:start &lt;database&gt;</code></td><td>Spuštění Liquibase migrací</td></tr>
+  <tr><td><code>hyperdrive:procedure &lt;name&gt;</code></td><td>Spuštění SQL procedury</td></tr>
+</table>
+
+<hr>
+
+<h2>DataType strategie (9 typů)</h2>
+<table>
+  <tr><th>Typ</th><th>Popis</th></tr>
+  <tr><td>String</td><td>Textová hodnota</td></tr>
+  <tr><td>Integer</td><td>Celé číslo</td></tr>
+  <tr><td>Float</td><td>Desetinné číslo</td></tr>
+  <tr><td>Date</td><td>Datum</td></tr>
+  <tr><td>DateTime</td><td>Datum a čas</td></tr>
+  <tr><td>Time</td><td>Čas</td></tr>
+  <tr><td>Bool</td><td>Pravda/nepravda</td></tr>
+  <tr><td>Email</td><td>Email adresa</td></tr>
+  <tr><td>ArrayInt</td><td>Pole celých čísel</td></tr>
+</table>
+
+</body>
+</html>

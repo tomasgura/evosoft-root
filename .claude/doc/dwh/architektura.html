@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architektura — DWH</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #1b5e20; border-bottom: 3px solid #1b5e20; padding-bottom: 10px; }
+  h2 { color: #2e7d32; margin-top: 40px; }
+  h3 { color: #388e3c; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th { background: #1b5e20; color: #fff; padding: 10px 14px; text-align: left; }
+  td { border: 1px solid #c8e6c9; padding: 8px 14px; }
+  tr:nth-child(even) td { background: #e8f5e9; }
+  pre { background: #f5f5f5; border-left: 4px solid #388e3c; padding: 16px; overflow-x: auto; border-radius: 4px; font-size: 13px; line-height: 1.6; }
+  code { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .box { background: #e8f5e9; border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<h1>Architektura — DWH (Data Warehouse)</h1>
+
+<h2>Přehled</h2>
+<table>
+  <tr><th>Položka</th><th>Hodnota</th></tr>
+  <tr><td>Framework</td><td>Nette Framework 3.2+</td></tr>
+  <tr><td>PHP</td><td>8.3+</td></tr>
+  <tr><td>Databáze</td><td>PostgreSQL 17 (alternativně Oracle 18c XE)</td></tr>
+  <tr><td>Šablony</td><td>Latte 3.x</td></tr>
+  <tr><td>Frontend</td><td>Bootstrap 5 + Naja AJAX + Chart.js</td></tr>
+  <tr><td>Message Queue</td><td>RabbitMQ (AMQP 0.9.1)</td></tr>
+  <tr><td>Streaming</td><td>Kafka (volitelně, pro publikace)</td></tr>
+  <tr><td>Migrace</td><td>Liquibase (via Hyperdrive)</td></tr>
+  <tr><td>Verze</td><td>v3.0.4.7</td></tr>
+</table>
+
+<div class="box">
+  <strong>Co DWH dělá:</strong> ETL platforma — příjem dat z externích zdrojů, asynchronní zpracování přes RabbitMQ pipeline, publikace do cílových systémů (materialized views, Kafka, soubory). Ostatní aplikace (např. Judo výsledkový portál) čtou data z materializovaných pohledů, které DWH spravuje.
+</div>
+
+<h2>Datový tok (ETL pipeline)</h2>
+<pre>
+ZDROJ (zdrojová DB / API / soubor)
+  ↓
+[1] Data Source — SQL query na zdroji
+  ↓ RabbitMQ: dataSourceQueue
+[2] Import — parsování raw dat → dataset_values
+  ↓ RabbitMQ: dataToValuesQueue
+[3] Transformace — editace, mapování, výpočty
+  ↓ RabbitMQ: transformationQueue
+[4] Obohacení (Enrichment) — lookup join z jiných datasetů
+  ↓ RabbitMQ: enrichmentQueue
+[5] Validace — kontrola formátů, povinnosti, regex
+  ↓ RabbitMQ: validationQueue
+[6] Data Quality — detekce anomálií
+  ↓ RabbitMQ: dataQualityQueue
+[7] Publikace — export do externích systémů
+  ↓ RabbitMQ: publicationQueue
+VÝSTUP (materialized views, Kafka, Excel, API)
+</pre>
+
+<h2>Architekturní vrstvy</h2>
+<pre>
+┌─────────────────────────────────────────────────┐
+│  WEB FRONTEND                                   │
+│  Bootstrap + Naja AJAX + Chart.js + Tom-Select  │
+└──────────────────┬──────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────┐
+│  NETTE MVC LAYER                                │
+│  Presenters: DataModule, AdminModule,           │
+│  SuperAdminModule, REST API (Apitte)            │
+└──────────────────┬──────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────┐
+│  SERVICE LAYER & MANAGERS                       │
+│  DatasetActionService, DataSourceService,       │
+│  ValidationService, PublicationService, ...     │
+└──────────────────┬──────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────┐
+│  REPOSITORY / DATA ACCESS LAYER                 │
+│  BaseRepository, EDA ORM, Dibi                  │
+└──────────────────┬──────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────┐
+│  MESSAGE QUEUE WORKER LAYER                     │
+│  9 RabbitMQ consumers (background procesy)      │
+│  MasterConsumer → pipeline → PublicationConsumer│
+└──────────────────┬──────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────┐
+│  DATABASE LAYER                                 │
+│  PostgreSQL / Oracle                            │
+│  Core tables + materialized views (export.*)    │
+│  Migrace: Liquibase (Hyperdrive)                │
+└──────────────────┬──────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────┐
+│  EXTERNAL INTEGRATIONS                          │
+│  Zdrojové DB, Kafka, Portal API, SMTP           │
+└─────────────────────────────────────────────────┘
+</pre>
+
+<h2>Technologie</h2>
+
+<h3>Backend</h3>
+<table>
+  <tr><th>Komponenta</th><th>Technologie</th></tr>
+  <tr><td>MVC framework</td><td>Nette Framework 3.2+</td></tr>
+  <tr><td>Šablony</td><td>Latte 3.x</td></tr>
+  <tr><td>ORM</td><td>EDA (Evosoft) + Dibi</td></tr>
+  <tr><td>DI kontejner</td><td>Nette DI (NEON konfigurace)</td></tr>
+  <tr><td>Message queue</td><td>contributte/rabbitmq + bunny/bunny</td></tr>
+  <tr><td>Kafka</td><td>evosoftcz/kafka</td></tr>
+  <tr><td>REST API</td><td>contributte/apitte</td></tr>
+  <tr><td>DB migrace</td><td>evosoftcz/hyperdrive (Liquibase)</td></tr>
+  <tr><td>CLI</td><td>contributte/console (Symfony Console)</td></tr>
+  <tr><td>Export</td><td>evosoftcz/php_xlsxwriter</td></tr>
+  <tr><td>Auth</td><td>evosoftcz/rights (RBAC) + OTP 2FA</td></tr>
+</table>
+
+<h3>Frontend</h3>
+<table>
+  <tr><th>Knihovna</th><th>Účel</th></tr>
+  <tr><td>Bootstrap 5</td><td>CSS framework</td></tr>
+  <tr><td>Naja</td><td>AJAX + history API (SPA-like navigace)</td></tr>
+  <tr><td>Chart.js</td><td>Grafy a vizualizace</td></tr>
+  <tr><td>Tom Select</td><td>Rozšířené selectboxy</td></tr>
+  <tr><td>Tempus Dominus</td><td>DateTime picker</td></tr>
+  <tr><td>jQuery</td><td>DOM manipulace</td></tr>
+  <tr><td>jsPDF + html2canvas</td><td>PDF generování v prohlížeči</td></tr>
+</table>
+
+<h2>Design patterns</h2>
+<table>
+  <tr><th>Pattern</th><th>Použití</th></tr>
+  <tr><td>Message-Driven Architecture</td><td>RabbitMQ pipeline pro ETL</td></tr>
+  <tr><td>Domain-Driven Design</td><td>DataModule, AdminModule, SuperAdminModule</td></tr>
+  <tr><td>Service Locator</td><td>Nette DI container</td></tr>
+  <tr><td>Factory Pattern</td><td>DatasetEntityFactory, DatasetActionServiceFactory</td></tr>
+  <tr><td>Repository Pattern</td><td>BaseRepository</td></tr>
+  <tr><td>Strategy Pattern</td><td>DataType strategie (String, Integer, Date, ...)</td></tr>
+</table>
+
+<h2>Statistiky</h2>
+<table>
+  <tr><th>Metrika</th><th>Hodnota</th></tr>
+  <tr><td>PHP kód</td><td>~50 000+ řádků</td></tr>
+  <tr><td>DB tabulky</td><td>20+</td></tr>
+  <tr><td>RabbitMQ fronty</td><td>9</td></tr>
+  <tr><td>REST API endpointy</td><td>15+</td></tr>
+  <tr><td>Nette Presenters</td><td>30+</td></tr>
+  <tr><td>Composer závislosti</td><td>90+</td></tr>
+  <tr><td>Liquibase changesets</td><td>20+ (2022–2026)</td></tr>
+</table>
+
+</body>
+</html>

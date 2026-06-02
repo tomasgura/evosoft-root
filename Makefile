@@ -35,13 +35,17 @@ dev-down: ## Vypnutí dev prostředí
 
 dev-restart: dev-down dev-start ## Restart dev prostředí
 
-flexii-fullstart: dev-start flexii-start flexii-start-db flexii-start-konzumeri ## Spuštění flexi prostředí s databází a konzumeri
+dev-rabbit-monitor:
+	docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
 
 
 
 
 
 # Flexii
+
+flexii-fullstart: dev-start flexii-start flexii-start-db flexii-start-konzumeri ## Spuštění flexi prostředí s databází a konzumeri
+
 flexii-fix:
 	cd flexii && docker compose exec app git config --global --add safe.directory /var/www/evo
 
@@ -81,11 +85,13 @@ flexii-restart-with-dump-data: flexii-restart flexii-restore-dump-data ## restar
 
 
 # Hajime
-hajime-start: dev-start ## Spuštění hajime prostředí
+hajime-start: ## Spuštění hajime prostředí
 	cd judo-external-hajime && docker compose up -d
 
 hajime-down: ## Vypnutí flexi prostředí
 	cd judo-external-hajime && docker compose kill && docker compose down
+
+hajime-restart: hajime-down hajime-start
 
 hajime-install: hajime-start
 	#composer install
@@ -106,13 +112,19 @@ hajime-dump-data:## dump hajime
 
 
 
-
+# DWH Data WareHous
 
 dwh-dump-data:## dump dwh
 	docker exec dev-docker-postgresql_17-1 sh -c 'pg_dump -U app dwh' > dwh_dump_$(shell date +%Y-%m-%d_%H-%M-%S).sql
 
 dwh-start: dev-start ## Spuštění dwh prostředí
 	cd dwh && docker compose up -d
+
+dwh-down: ## Vypnutí dwh prostředí
+	cd dwh && docker compose kill && docker compose down
+
+dwh-restart: dwh-down dwh-start # dwh restart
+
 
 dwh-start-db: ## Spuštění databáze pro Hajime
 	cd dwh && sudo chmod +x vendor/evosoftcz/hyperdrive/resources/commands/procedure.sh # && /usr/bin/bash ./vendor/evosoftcz/hyperdrive/resources/commands/procedure.sh
@@ -121,6 +133,9 @@ dwh-start-db: ## Spuštění databáze pro Hajime
 	cd dwh && sudo chmod +x ./resources/dev/scripts/startup.sh
 	cd dwh && /usr/bin/bash ./resources/dev/scripts/startup.sh -c dwh_app_1 postgre
 
+dwh-dump-data:## dump DWH
+	# docker exec dev-docker-postgresql_16-1 pg_dump -U app flexii_c9 > dump.sql
+	docker exec dev-docker-postgresql_17-1 sh -c 'pg_dump -U app dwh' > dwh_dump_$(shell date +%Y-%m-%d_%H-%M-%S).sql
 
 dwh-rabitmq-consumeri: ## Spuštění rabitmq consumerů pro dwh
 	cd dwh && sudo chmod +x ./resources/scripts/rabbitmq/__startAllConsumer.sh

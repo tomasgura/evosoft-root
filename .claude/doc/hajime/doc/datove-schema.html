@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hajime – Datové schéma</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; line-height: 1.65; color: #1a1a2e; background: #f0f2f8; }
+    a { color: #0d6efd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .layout { display: flex; min-height: 100vh; }
+    nav { width: 260px; min-width: 220px; background: #0d1b2a; color: #b0c4d8; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+    nav .brand { padding: 20px 20px 16px; background: #071626; border-bottom: 1px solid #1e3a52; }
+    nav .brand h1 { font-size: 19px; color: #fff; font-weight: 800; }
+    nav .brand p { font-size: 11px; color: #6a8faa; margin-top: 3px; }
+    nav ul { list-style: none; }
+    nav ul li a { display: block; padding: 7px 20px; color: #b0c4d8; font-size: 13px; border-left: 3px solid transparent; transition: background 0.12s; }
+    nav ul li a:hover { background: #162a3e; color: #e0ecfa; border-left-color: #0d6efd; text-decoration: none; }
+    nav ul li.section { padding: 14px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #3d6080; font-weight: 700; }
+
+    main { flex: 1; padding: 36px 48px 60px; max-width: 1000px; }
+    .page-title h1 { font-size: 30px; font-weight: 800; color: #0d1b2a; }
+    .page-title .subtitle { color: #555; font-size: 14px; margin-top: 5px; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 12px; margin: 3px 3px 0 0; font-weight: 600; }
+    .badge.blue { background: #e7f0ff; color: #0d6efd; }
+    .badge.green { background: #e6f9f0; color: #15803d; }
+
+    section { margin-top: 44px; padding-top: 10px; border-top: 2px solid #dde3ee; }
+    h2 { font-size: 21px; color: #0d1b2a; margin-bottom: 14px; }
+    h3 { font-size: 16px; color: #1a3a5c; margin: 22px 0 9px; font-weight: 700; }
+    h4 { font-size: 13px; color: #234; margin: 14px 0 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    p { margin-bottom: 10px; color: #2a2a3e; }
+    ul, ol { margin: 0 0 12px 22px; }
+    li { margin-bottom: 4px; }
+
+    .table-wrap { overflow-x: auto; margin: 12px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th { background: #0d1b2a; color: #e0ecfa; text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 7px 12px; border-bottom: 1px solid #e3e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f9fd; }
+    tr:hover td { background: #edf2ff; }
+    td code, th code { font-family: 'Consolas', monospace; font-size: 12px; background: #eef2ff; padding: 1px 4px; border-radius: 3px; color: #0d6efd; }
+
+    pre { background: #0d1b2a; color: #c8d8e8; padding: 16px 20px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin: 14px 0; line-height: 1.55; border-left: 4px solid #0d6efd; }
+    code { font-family: 'Consolas', monospace; font-size: 12.5px; background: #eef2ff; padding: 2px 5px; border-radius: 3px; color: #0d6efd; }
+    pre code { background: transparent; color: inherit; padding: 0; }
+
+    .callout { padding: 12px 16px; border-radius: 6px; margin: 14px 0; font-size: 13.5px; }
+    .callout.info { background: #e7f3ff; border-left: 4px solid #0d6efd; }
+    .callout.warning { background: #fff8e6; border-left: 4px solid #f59e0b; }
+
+    .sec-n { display: inline-block; background: #0d6efd; color: #fff; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 4px; margin-right: 8px; }
+
+    /* Table list cards */
+    .table-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 14px 0; }
+    .tcard { background: #fff; border: 1px solid #dde3ee; border-radius: 8px; padding: 12px 14px; }
+    .tcard .tname { font-family: 'Consolas', monospace; font-size: 13px; font-weight: 700; color: #0d6efd; margin-bottom: 3px; }
+    .tcard .tentity { font-size: 12px; color: #15803d; font-weight: 600; margin-bottom: 4px; }
+    .tcard .tdesc { font-size: 12px; color: #555; }
+
+    /* ER diagram */
+    .er-diagram { background: #fff; border: 1px solid #dde3ee; border-radius: 10px; padding: 28px; margin: 16px 0; overflow-x: auto; }
+    .er-grid { display: grid; gap: 16px; }
+
+    /* Entity boxes */
+    .er-box { border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 160px; }
+    .er-box .er-head { padding: 7px 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+    .er-box .er-table { font-family: 'Consolas', monospace; font-size: 11px; padding: 2px 12px 7px; opacity: 0.8; }
+    .er-box .er-cols { padding: 0; font-size: 12px; }
+    .er-box .er-col { padding: 4px 12px; border-top: 1px solid rgba(0,0,0,.06); display: flex; gap: 6px; align-items: baseline; }
+    .er-box .er-col .col-name { font-family: 'Consolas', monospace; font-size: 11.5px; flex: 1; }
+    .er-box .er-col .col-type { font-size: 10px; color: #888; white-space: nowrap; }
+    .er-box .er-col .col-pk { font-size: 9px; background: #fbbf24; color: #78350f; padding: 0 4px; border-radius: 3px; font-weight: 700; }
+    .er-box .er-col .col-fk { font-size: 9px; background: #dbeafe; color: #1e40af; padding: 0 4px; border-radius: 3px; font-weight: 700; }
+    .er-box .er-col .col-nn { font-size: 9px; background: #f3f4f6; color: #6b7280; padding: 0 4px; border-radius: 3px; }
+
+    .c-tournament { background: #1e40af; } .c-tournament .er-head { background: #1e40af; color: #fff; } .c-tournament .er-cols { background: #eff6ff; }
+    .c-member    { background: #065f46; } .c-member    .er-head { background: #065f46; color: #fff; } .c-member    .er-cols { background: #ecfdf5; }
+    .c-club      { background: #3730a3; } .c-club      .er-head { background: #3730a3; color: #fff; } .c-club      .er-cols { background: #eef2ff; }
+    .c-admin     { background: #7c2d12; } .c-admin     .er-head { background: #7c2d12; color: #fff; } .c-admin     .er-cols { background: #fff7ed; }
+    .c-cat       { background: #0f766e; } .c-cat       .er-head { background: #0f766e; color: #fff; } .c-cat       .er-cols { background: #f0fdfa; }
+    .c-catage    { background: #0369a1; } .c-catage    .er-head { background: #0369a1; color: #fff; } .c-catage    .er-cols { background: #f0f9ff; }
+    .c-subcat    { background: #7e22ce; } .c-subcat    .er-head { background: #7e22ce; color: #fff; } .c-subcat    .er-cols { background: #faf5ff; }
+    .c-memcat    { background: #b45309; } .c-memcat    .er-head { background: #b45309; color: #fff; } .c-memcat    .er-cols { background: #fffbeb; }
+    .c-match     { background: #be123c; } .c-match     .er-head { background: #be123c; color: #fff; } .c-match     .er-cols { background: #fff1f2; }
+    .c-misc      { background: #374151; } .c-misc      .er-head { background: #374151; color: #fff; } .c-misc      .er-cols { background: #f9fafb; }
+
+    .er-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; justify-content: center; }
+    .er-center { display: flex; justify-content: center; }
+    .er-connector { display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; gap: 8px; margin: 4px 0; }
+    .er-connector span { white-space: nowrap; }
+
+    /* FK table color coding */
+    .fk-highlight { background: #eef2ff !important; }
+
+    footer { margin-top: 60px; padding: 18px 0; border-top: 1px solid #dde3ee; color: #888; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <nav>
+    <div class="brand">
+      <h1>Hajime</h1>
+      <p>Datové schéma · DB</p>
+    </div>
+    <ul>
+      <li class="section">Přehled</li>
+      <li><a href="#sec1">1. Přehled tabulek</a></li>
+      <li><a href="#sec2">2. ER diagram</a></li>
+      <li class="section">Tabulky</li>
+      <li><a href="#t-tournament">tournament</a></li>
+      <li><a href="#t-member">tournament_has_member</a></li>
+      <li><a href="#t-club">tournament_has_club</a></li>
+      <li><a href="#t-admin">admin</a></li>
+      <li><a href="#t-scale">tournament_has_scale</a></li>
+      <li><a href="#t-tatami">tournament_has_tatami</a></li>
+      <li><a href="#t-tatamimatch">tatami_has_match</a></li>
+      <li><a href="#t-catage">tournament_has_category_age</a></li>
+      <li><a href="#t-category">tournament_has_category</a></li>
+      <li><a href="#t-subcat">tournament_has_subcategory</a></li>
+      <li><a href="#t-memcat">…_member_has_category</a></li>
+      <li><a href="#t-match">tournament_has_match</a></li>
+      <li><a href="#t-matchdata">match_data</a></li>
+      <li><a href="#t-infopanel">…_infopanel</a></li>
+      <li><a href="#t-results">subcategory_has_results</a></li>
+      <li class="section">Reference</li>
+      <li><a href="#sec4">FK přehled</a></li>
+      <li><a href="#sec5">Konvence</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="page-title">
+      <h1>Datové schéma</h1>
+      <div class="subtitle">Hajime – PostgreSQL 15 · schéma <code>judo</code></div>
+      <span class="badge blue">16 tabulek</span>
+      <span class="badge green">judo schema</span>
+      <span class="badge blue">soft-delete</span>
+    </div>
+
+    <!-- 1 -->
+    <section id="sec1">
+      <h2><span class="sec-n">1</span>Přehled tabulek</h2>
+      <div class="table-cards">
+        <div class="tcard"><div class="tname">tournament</div><div class="tentity">Tournament</div><div class="tdesc">Turnaj – root entita</div></div>
+        <div class="tcard"><div class="tname">tournament_has_member</div><div class="tentity">Member</div><div class="tdesc">Závodník v turnaji</div></div>
+        <div class="tcard"><div class="tname">tournament_has_club</div><div class="tentity">Club</div><div class="tdesc">Klub v turnaji</div></div>
+        <div class="tcard"><div class="tname">admin</div><div class="tentity">Admin</div><div class="tdesc">Administrátor</div></div>
+        <div class="tcard"><div class="tname">admin_has_tournament</div><div class="tentity">m:n junction</div><div class="tdesc">Admin ↔ Tournament</div></div>
+        <div class="tcard"><div class="tname">tournament_has_scale</div><div class="tentity">Scale</div><div class="tdesc">Váha v turnaji</div></div>
+        <div class="tcard"><div class="tname">tournament_has_tatami</div><div class="tentity">Tatami</div><div class="tdesc">Zápaziště</div></div>
+        <div class="tcard"><div class="tname">tatami_has_match</div><div class="tentity">TatamiMatch</div><div class="tdesc">Slot zápasu na tatami</div></div>
+        <div class="tcard"><div class="tname">tournament_has_category_age</div><div class="tentity">CategoryAge</div><div class="tdesc">Věková kategorie</div></div>
+        <div class="tcard"><div class="tname">tournament_has_category</div><div class="tentity">Category</div><div class="tdesc">Hmotnostní kategorie</div></div>
+        <div class="tcard"><div class="tname">tournament_has_subcategory</div><div class="tentity">SubCategory</div><div class="tdesc">Párovací skupina / pavouk</div></div>
+        <div class="tcard"><div class="tname">tournament_has_member_has_category</div><div class="tentity">MemberCategory</div><div class="tdesc">Přihláška závodníka</div></div>
+        <div class="tcard"><div class="tname">tournament_has_match</div><div class="tentity">TournamentMatch</div><div class="tdesc">Zápas v pavouku + skóre</div></div>
+        <div class="tcard"><div class="tname">match_data</div><div class="tentity">TournamentMatchData</div><div class="tdesc">JSON audit log zápasu</div></div>
+        <div class="tcard"><div class="tname">tournament_has_infopanel</div><div class="tentity">InfoPanel</div><div class="tdesc">Informační panel</div></div>
+        <div class="tcard"><div class="tname">subcategory_has_results</div><div class="tentity">SubCategoryResults</div><div class="tdesc">Výsledky skupiny</div></div>
+      </div>
+    </section>
+
+    <!-- 2 ER diagram -->
+    <section id="sec2">
+      <h2><span class="sec-n">2</span>ER diagram – entity a vazby</h2>
+      <div class="er-diagram">
+
+        <!-- Root row -->
+        <div class="er-row" style="margin-bottom:8px">
+          <div class="er-box c-admin" style="min-width:140px">
+            <div class="er-head">admin</div>
+            <div class="er-table">admin</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">full_name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">password</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">is_super_admin</span><span class="col-type">bool</span></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#94a3b8;font-size:11px;padding:0 8px">
+            <span>m:n</span>
+            <span>←→</span>
+          </div>
+
+          <div class="er-box c-tournament">
+            <div class="er-head">tournament</div>
+            <div class="er-table">tournament</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">uid</span><span class="col-type">varchar</span><span class="col-nn">NN</span></div>
+              <div class="er-col"><span class="col-name">name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">type</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">is_approved</span><span class="col-type">bool</span></div>
+              <div class="er-col"><span class="col-name">tatami_count</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">scale_count</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">dt_tournament_start</span><span class="col-type">ts</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tournament → children -->
+        <div class="er-connector">↓ 1:m na všechny níže</div>
+
+        <div class="er-row">
+          <div class="er-box c-club" style="min-width:140px">
+            <div class="er-head">club</div>
+            <div class="er-table">tournament_has_club</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-misc" style="min-width:140px">
+            <div class="er-head">scale</div>
+            <div class="er-table">tournament_has_scale</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">password</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-misc" style="min-width:160px">
+            <div class="er-head">tatami</div>
+            <div class="er-table">tournament_has_tatami</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">password</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">priority</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-catage" style="min-width:200px">
+            <div class="er-head">category_age</div>
+            <div class="er-table">tournament_has_category_age</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">age_name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">gender</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">age_from / age_to</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">match_time</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">weight_tolerance</span><span class="col-type">float</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="er-connector">↓</div>
+
+        <!-- Member + Category -->
+        <div class="er-row">
+          <div class="er-box c-member" style="min-width:200px">
+            <div class="er-head">member</div>
+            <div class="er-table">tournament_has_member</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">uid</span><span class="col-type">varchar</span><span class="col-nn">NN</span></div>
+              <div class="er-col"><span class="col-name">firstname / lastname</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">gender</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">dt_birth</span><span class="col-type">date</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_club</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-cat" style="min-width:200px">
+            <div class="er-head">category</div>
+            <div class="er-table">tournament_has_category</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">weight_name</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">weight_from / weight_to</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">status</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">priority</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_category_age</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="er-connector">↓ category → subcategory → match | member → member_category</div>
+
+        <div class="er-row">
+          <div class="er-box c-subcat" style="min-width:200px">
+            <div class="er-head">subcategory</div>
+            <div class="er-table">tournament_has_subcategory</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">draw_system</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">status</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">is_repechage</span><span class="col-type">bool</span></div>
+              <div class="er-col"><span class="col-name">weight</span><span class="col-type">float</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_category</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-memcat" style="min-width:220px">
+            <div class="er-head">member_category</div>
+            <div class="er-table">tournament_has_member_has_category</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">weight</span><span class="col-type">float</span></div>
+              <div class="er-col"><span class="col-name">is_approved</span><span class="col-type">bool</span></div>
+              <div class="er-col"><span class="col-name">is_dnf</span><span class="col-type">bool</span></div>
+              <div class="er-col"><span class="col-name">seeding</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">starting_number</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_member</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_category</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_category_age</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_subcategory</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_scale</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-match" style="min-width:220px">
+            <div class="er-head">tournament_match</div>
+            <div class="er-table">tournament_has_match</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">subcategory_match_number</span><span class="col-type">varchar</span></div>
+              <div class="er-col"><span class="col-name">status</span><span class="col-type">enum</span></div>
+              <div class="er-col"><span class="col-name">round / round_name</span><span class="col-type">int/varchar</span></div>
+              <div class="er-col"><span class="col-name">is_blue_winner</span><span class="col-type">bool</span></div>
+              <div class="er-col"><span class="col-name">blue_ippon/wazari/shido…</span><span class="col-type">bool/int</span></div>
+              <div class="er-col"><span class="col-name">white_ippon/wazari/shido…</span><span class="col-type">bool/int</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_subcategory</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_…_member_category_blue</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_…_member_category_white</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="er-connector">↓ tournament_match → tatami_has_match (1:1) | tournament_match → match_data (1:m)</div>
+
+        <div class="er-row">
+          <div class="er-box c-misc" style="min-width:200px">
+            <div class="er-head">tatami_has_match</div>
+            <div class="er-table">tatami_has_match</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">priority</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_tatami</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_match</span><span class="col-fk">FK 1:1</span></div>
+              <div class="er-col"><span class="col-name">id_admin</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-misc" style="min-width:200px">
+            <div class="er-head">match_data</div>
+            <div class="er-table">match_data</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">match_data</span><span class="col-type">JSONB</span></div>
+              <div class="er-col"><span class="col-name">timestamp</span><span class="col-type">ts</span><span class="col-nn">NN</span></div>
+              <div class="er-col"><span class="col-name">id_tournament_has_match</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+
+          <div class="er-box c-misc" style="min-width:180px">
+            <div class="er-head">subcategory_results</div>
+            <div class="er-table">subcategory_has_results</div>
+            <div class="er-cols">
+              <div class="er-col"><span class="col-name">id</span><span class="col-pk">PK</span></div>
+              <div class="er-col"><span class="col-name">member_rank</span><span class="col-type">int</span></div>
+              <div class="er-col"><span class="col-name">id_tournament</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_subcategory</span><span class="col-fk">FK</span></div>
+              <div class="er-col"><span class="col-name">id_member</span><span class="col-fk">FK</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Tables detail -->
+    <section id="sec3">
+      <h2><span class="sec-n">3</span>Tabulky – detail sloupců</h2>
+
+      <h3 id="t-tournament">tournament</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr class="fk-highlight"><td><code>id</code></td><td>SERIAL PK</td><td></td></tr>
+          <tr><td><code>uid</code></td><td>VARCHAR NOT NULL</td><td>Externě sdílený identifikátor</td></tr>
+          <tr><td><code>tournament_csju_id</code></td><td>INT NOT NULL</td><td>ID v systému ČSJÚ</td></tr>
+          <tr><td><code>name</code></td><td>VARCHAR NOT NULL</td><td>Název turnaje</td></tr>
+          <tr><td><code>dt_tournament_start / end</code></td><td>TIMESTAMP</td><td>Datum konání</td></tr>
+          <tr><td><code>dt_term_for_registration</code></td><td>TIMESTAMP</td><td>Uzávěrka přihlášek</td></tr>
+          <tr><td><code>location, street, city, postal_code, address_region, country</code></td><td>VARCHAR</td><td>Místo konání</td></tr>
+          <tr><td><code>tatami_count / scale_count</code></td><td>INT</td><td>Počty zápaziš/váh</td></tr>
+          <tr><td><code>type</code></td><td>VARCHAR (enum)</td><td>Typ turnaje</td></tr>
+          <tr><td><code>is_approved</code></td><td>BOOLEAN</td><td>Turnaj schválen</td></tr>
+          <tr><td><code>results_are_approved</code></td><td>BOOLEAN</td><td>Výsledky schváleny</td></tr>
+          <tr><td><code>enabled, dt_ins, dt_upd</code></td><td>BOOL / TS</td><td>Soft-delete, audit</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-member">tournament_has_member</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>uid</code></td><td>VARCHAR NOT NULL</td><td>Externě sdílený identifikátor</td></tr>
+          <tr><td><code>member_csju_id</code></td><td>VARCHAR NOT NULL</td><td>ID závodníka v ČSJÚ</td></tr>
+          <tr><td><code>firstname, lastname</code></td><td>VARCHAR</td><td></td></tr>
+          <tr><td><code>gender</code></td><td>VARCHAR enum</td><td>men / women</td></tr>
+          <tr><td><code>dt_birth</code></td><td>DATE</td><td>Datum narození</td></tr>
+          <tr><td><code>kyu, dan</code></td><td>VARCHAR</td><td>Technická úroveň</td></tr>
+          <tr><td><code>dt_flexii_edit</code></td><td>TIMESTAMP</td><td>Datum syncu z Flexii</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK→tournament</td><td></td></tr>
+          <tr><td><code>id_club</code></td><td>INT FK→tournament_has_club</td><td></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-club">tournament_has_club</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>VARCHAR NOT NULL</td><td>Název klubu</td></tr>
+          <tr><td><code>abbreviation</code></td><td>VARCHAR</td><td>Zkratka</td></tr>
+          <tr><td><code>country, country_alpha2, country_alpha3</code></td><td>VARCHAR</td><td>Země</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK→tournament</td><td></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-admin">admin</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>full_name</code></td><td>VARCHAR NOT NULL</td><td></td></tr>
+          <tr><td><code>password</code></td><td>VARCHAR NOT NULL</td><td>Hashované heslo</td></tr>
+          <tr><td><code>flexii_account</code></td><td>VARCHAR</td><td>Propojení s Flexii SSO</td></tr>
+          <tr><td><code>is_super_admin</code></td><td>BOOLEAN DEFAULT false</td><td></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-scale">tournament_has_scale</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>VARCHAR NOT NULL</td><td>Název váhy</td></tr>
+          <tr><td><code>password</code></td><td>VARCHAR NOT NULL</td><td>Heslo pro přihlášení operátora</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK→tournament</td><td></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-tatami">tournament_has_tatami</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>VARCHAR NOT NULL</td><td>Název tatami</td></tr>
+          <tr><td><code>password</code></td><td>VARCHAR NOT NULL</td><td>Heslo pro scoreboard</td></tr>
+          <tr><td><code>priority</code></td><td>INT</td><td>Pořadí zobrazení</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK→tournament</td><td></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-tatamimatch">tatami_has_match</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>priority</code></td><td>INT</td><td>Pořadí v frontě tatami</td></tr>
+          <tr><td><code>id_tournament_has_tatami</code></td><td>INT FK</td><td>→ tournament_has_tatami</td></tr>
+          <tr><td><code>id_tournament_has_match</code></td><td>INT FK <strong>1:1</strong></td><td>→ tournament_has_match</td></tr>
+          <tr><td><code>id_admin</code></td><td>INT FK</td><td>→ admin (odpovědný rozhodčí)</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-catage">tournament_has_category_age</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>age_name / age_name_short</code></td><td>VARCHAR</td><td>Název věkové kategorie</td></tr>
+          <tr><td><code>gender</code></td><td>enum</td><td>men / women / both</td></tr>
+          <tr><td><code>age_from / age_to</code></td><td>INT</td><td>Věkový rozsah (let)</td></tr>
+          <tr><td><code>match_time</code></td><td>INT</td><td>Délka zápasu (sekundy)</td></tr>
+          <tr><td><code>is_golden_score</code></td><td>BOOLEAN</td><td>Povoleno prodloužení</td></tr>
+          <tr><td><code>golden_score_time</code></td><td>INT</td><td>Délka GS (sekundy)</td></tr>
+          <tr><td><code>weight_tolerance</code></td><td>FLOAT</td><td>Tolerance váhy (kg)</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK</td><td>→ tournament</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-category">tournament_has_category</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>weight_name</code></td><td>VARCHAR NOT NULL</td><td>Název (např. „-60 kg")</td></tr>
+          <tr><td><code>weight_from / weight_to</code></td><td>INT</td><td>Váhový rozsah (kg)</td></tr>
+          <tr><td><code>status</code></td><td>enum</td><td>Stav kategorie</td></tr>
+          <tr><td><code>priority</code></td><td>INT</td><td>Pořadí zobrazení</td></tr>
+          <tr><td><code>merged_into</code></td><td>INT</td><td>ID cílové kategorie při sloučení</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK</td><td>→ tournament</td></tr>
+          <tr><td><code>id_tournament_has_category_age</code></td><td>INT FK</td><td>→ tournament_has_category_age</td></tr>
+          <tr><td><code>id_tournament_has_category_plus</code></td><td>INT FK (self)</td><td>Seberef. (nadkategorie)</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-subcat">tournament_has_subcategory</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>draw_system</code></td><td>enum</td><td>Typ pavouka (Table, Spider…)</td></tr>
+          <tr><td><code>status</code></td><td>enum</td><td>Stav skupiny</td></tr>
+          <tr><td><code>is_repechage</code></td><td>BOOLEAN</td><td>Opravné kolo</td></tr>
+          <tr><td><code>is_one_third_place</code></td><td>BOOLEAN</td><td>Souboj o 3. místo</td></tr>
+          <tr><td><code>gender_split</code></td><td>BOOLEAN</td><td>Rozdělit dle pohlaví</td></tr>
+          <tr><td><code>weight</code></td><td>FLOAT</td><td>Průměrná váha skupiny</td></tr>
+          <tr><td><code>priority</code></td><td>INT</td><td></td></tr>
+          <tr><td><code>additional_weighting_enabled</code></td><td>BOOLEAN</td><td>Povoleno doplňkové vážení</td></tr>
+          <tr><td><code>id_tournament_has_category</code></td><td>INT FK</td><td>→ tournament_has_category</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-memcat">tournament_has_member_has_category</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>weight</code></td><td>FLOAT</td><td>Naměřená váha (kg)</td></tr>
+          <tr><td><code>is_approved</code></td><td>BOOLEAN</td><td>Přihláška schválena (po vážení)</td></tr>
+          <tr><td><code>is_dnf</code></td><td>BOOLEAN</td><td>Závodník nenastoupil</td></tr>
+          <tr><td><code>is_results_excluded</code></td><td>BOOLEAN</td><td>Vyloučen z výsledků</td></tr>
+          <tr><td><code>is_preregistered</code></td><td>BOOLEAN</td><td>Pouze předregistrace</td></tr>
+          <tr><td><code>starting_number</code></td><td>INT</td><td>Startovní číslo</td></tr>
+          <tr><td><code>seeding</code></td><td>INT</td><td>Nasazení v pavouku</td></tr>
+          <tr><td><code>id_tournament_has_member</code></td><td>INT FK</td><td>→ tournament_has_member</td></tr>
+          <tr><td><code>id_tournament_has_category</code></td><td>INT FK</td><td>→ tournament_has_category</td></tr>
+          <tr><td><code>id_tournament_has_category_age</code></td><td>INT FK</td><td>→ tournament_has_category_age</td></tr>
+          <tr><td><code>id_tournament_has_subcategory</code></td><td>INT FK</td><td>→ tournament_has_subcategory</td></tr>
+          <tr><td><code>id_tournament_has_scale</code></td><td>INT FK</td><td>→ tournament_has_scale (kde byl zvážen)</td></tr>
+          <tr><td><code>id_…_category_preregistered</code></td><td>INT FK</td><td>→ tournament_has_category (předreg.)</td></tr>
+          <tr><td><code>id_…_category_age_preregistered</code></td><td>INT FK</td><td>→ tournament_has_category_age (předreg.)</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-match">tournament_has_match</h3>
+      <div class="callout info">Tabulka ukládá kompletní skóre zápasu. Sloupce <code>blue_*</code> a <code>white_*</code> jsou symetrické pro oba závodníky.</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>subcategory_match_number</code></td><td>VARCHAR NOT NULL</td><td>Identifikátor místa v pavouku</td></tr>
+          <tr><td><code>status</code></td><td>enum</td><td>Stav zápasu</td></tr>
+          <tr><td><code>round / round_name</code></td><td>INT / VARCHAR</td><td>Kolo (Final, SF, R8…)</td></tr>
+          <tr><td><code>match_number</code></td><td>INT</td><td>Číslo zápasu</td></tr>
+          <tr><td><code>is_blue_winner</code></td><td>BOOLEAN</td><td>true = modrý vyhrál, false = bílý</td></tr>
+          <tr><td><code>blue_ippon</code></td><td>BOOLEAN</td><td>Ippon modrého</td></tr>
+          <tr><td><code>blue_wazari</code></td><td>INT</td><td>Počet wazari</td></tr>
+          <tr><td><code>blue_shido</code></td><td>INT</td><td>Počet shido</td></tr>
+          <tr><td><code>blue_hansoku_make</code></td><td>BOOLEAN</td><td>Diskvalifikace</td></tr>
+          <tr><td><code>blue_fusen_kiken_gachi</code></td><td>BOOLEAN</td><td>Vítězství kontumací</td></tr>
+          <tr><td><code>start_datetime / end_datetime</code></td><td>TIMESTAMP</td><td>Čas průběhu zápasu</td></tr>
+          <tr><td><code>current_match_time / current_match_time_left</code></td><td>FLOAT</td><td>Aktuální čas (sekundy)</td></tr>
+          <tr><td><code>gs_start_datetime / gs_end_datetime</code></td><td>TIMESTAMP</td><td>Čas golden score</td></tr>
+          <tr><td><code>id_tournament_has_subcategory</code></td><td>INT FK</td><td>→ tournament_has_subcategory</td></tr>
+          <tr><td><code>id_…_member_category_blue</code></td><td>INT FK</td><td>→ tournament_has_member_has_category</td></tr>
+          <tr><td><code>id_…_member_category_white</code></td><td>INT FK</td><td>→ tournament_has_member_has_category</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-matchdata">match_data</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>match_data</code></td><td>JSONB</td><td>Snapshot celého stavu zápasu při každé změně</td></tr>
+          <tr><td><code>timestamp</code></td><td>TIMESTAMP NOT NULL</td><td>Čas změny</td></tr>
+          <tr><td><code>id_tournament_has_match</code></td><td>INT FK</td><td>→ tournament_has_match</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 id="t-infopanel">tournament_has_infopanel</h3>
+      <p>Informační panel přiřazený k turnaji. Heslo pro přihlášení přes URL.</p>
+
+      <h3 id="t-results">subcategory_has_results</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>member_rank</code></td><td>INT</td><td>Výsledné pořadí závodníka</td></tr>
+          <tr><td><code>id_tournament</code></td><td>INT FK</td><td>→ tournament</td></tr>
+          <tr><td><code>id_subcategory</code></td><td>INT FK</td><td>→ tournament_has_subcategory</td></tr>
+          <tr><td><code>id_member</code></td><td>INT FK</td><td>→ tournament_has_member</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- FK overview -->
+    <section id="sec4">
+      <h2><span class="sec-n">4</span>Cizí klíče (FK) – přehled</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tabulka</th><th>Sloupec (FK)</th><th>Odkazuje na</th></tr></thead>
+        <tbody>
+          <tr><td><code>tournament_has_member</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>tournament_has_member</code></td><td><code>id_club</code></td><td><code>tournament_has_club.id</code></td></tr>
+          <tr><td><code>tournament_has_club</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>admin_has_tournament</code></td><td><code>id_admin</code></td><td><code>admin.id</code></td></tr>
+          <tr><td><code>admin_has_tournament</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>tournament_has_scale</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>tournament_has_tatami</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>tatami_has_match</code></td><td><code>id_tournament_has_tatami</code></td><td><code>tournament_has_tatami.id</code></td></tr>
+          <tr><td><code>tatami_has_match</code></td><td><code>id_tournament_has_match</code></td><td><code>tournament_has_match.id</code> <strong>(1:1)</strong></td></tr>
+          <tr><td><code>tatami_has_match</code></td><td><code>id_admin</code></td><td><code>admin.id</code></td></tr>
+          <tr><td><code>tournament_has_category_age</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>tournament_has_category</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>tournament_has_category</code></td><td><code>id_tournament_has_category_age</code></td><td><code>tournament_has_category_age.id</code></td></tr>
+          <tr><td><code>tournament_has_category</code></td><td><code>id_tournament_has_category_plus</code></td><td><code>tournament_has_category.id</code> <em>(self-ref)</em></td></tr>
+          <tr><td><code>tournament_has_subcategory</code></td><td><code>id_tournament_has_category</code></td><td><code>tournament_has_category.id</code></td></tr>
+          <tr><td><code>tournament_has_member_has_category</code></td><td><code>id_tournament_has_member</code></td><td><code>tournament_has_member.id</code></td></tr>
+          <tr><td><code>tournament_has_member_has_category</code></td><td><code>id_tournament_has_category</code></td><td><code>tournament_has_category.id</code></td></tr>
+          <tr><td><code>tournament_has_member_has_category</code></td><td><code>id_tournament_has_category_age</code></td><td><code>tournament_has_category_age.id</code></td></tr>
+          <tr><td><code>tournament_has_member_has_category</code></td><td><code>id_tournament_has_subcategory</code></td><td><code>tournament_has_subcategory.id</code></td></tr>
+          <tr><td><code>tournament_has_member_has_category</code></td><td><code>id_tournament_has_scale</code></td><td><code>tournament_has_scale.id</code></td></tr>
+          <tr><td><code>tournament_has_match</code></td><td><code>id_tournament_has_subcategory</code></td><td><code>tournament_has_subcategory.id</code></td></tr>
+          <tr><td><code>tournament_has_match</code></td><td><code>id_…_member_category_blue</code></td><td><code>tournament_has_member_has_category.id</code></td></tr>
+          <tr><td><code>tournament_has_match</code></td><td><code>id_…_member_category_white</code></td><td><code>tournament_has_member_has_category.id</code></td></tr>
+          <tr><td><code>match_data</code></td><td><code>id_tournament_has_match</code></td><td><code>tournament_has_match.id</code></td></tr>
+          <tr><td><code>tournament_has_infopanel</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>subcategory_has_results</code></td><td><code>id_tournament</code></td><td><code>tournament.id</code></td></tr>
+          <tr><td><code>subcategory_has_results</code></td><td><code>id_subcategory</code></td><td><code>tournament_has_subcategory.id</code></td></tr>
+          <tr><td><code>subcategory_has_results</code></td><td><code>id_member</code></td><td><code>tournament_has_member.id</code></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- Conventions -->
+    <section id="sec5">
+      <h2><span class="sec-n">5</span>Datové typy a konvence</h2>
+
+      <h3>Společné sloupce (všechny tabulky)</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sloupec</th><th>Typ</th><th>Výchozí</th><th>Popis</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>SERIAL / BIGSERIAL</td><td>auto</td><td>Primární klíč</td></tr>
+          <tr><td><code>enabled</code></td><td>BOOLEAN</td><td>true</td><td>Soft-delete příznak</td></tr>
+          <tr><td><code>dt_ins</code></td><td>TIMESTAMP</td><td>now()</td><td>Datum vložení záznamu</td></tr>
+          <tr><td><code>dt_upd</code></td><td>TIMESTAMP</td><td>now()</td><td>Datum poslední změny (automatický trigger)</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Soft-delete</h3>
+      <p>Záznamy se fyzicky nemažou – <code>enabled = false</code> je ekvivalent smazání. ORM repozitáře filtrují <code>WHERE enabled = true</code> automaticky.</p>
+
+      <h3>Trigger update_dt_upd</h3>
+      <p>Automaticky nastavuje <code>dt_upd = now()</code> při každém UPDATE. Definován v první migraci <code>2023-08-03-120000-judo.xml</code>.</p>
+
+      <h3>Enums (VARCHAR s validací v PHP)</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Pole</th><th>PHP Enum třída</th><th>Hodnoty</th></tr></thead>
+        <tbody>
+          <tr><td><code>gender</code></td><td>GenderEnum</td><td>men, women, both</td></tr>
+          <tr><td><code>tournament.type</code></td><td>TournamentTypeEnum</td><td>viz enum třídu</td></tr>
+          <tr><td><code>category.status</code></td><td>CategoryStatusEnum</td><td>viz enum třídu</td></tr>
+          <tr><td><code>subcategory.status</code></td><td>SubCategoryStatusEnum</td><td>STATUS_SHUFFLED, …</td></tr>
+          <tr><td><code>subcategory.draw_system</code></td><td>DrawSystemEnum</td><td>Table, Spider, …</td></tr>
+          <tr><td><code>tournament_match.status</code></td><td>MatchStatusEnum</td><td>viz enum třídu</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Schéma a search_path</h3>
+      <p>PostgreSQL <code>search_path</code> je nastaven na: <code>configuration, base, log, judo, public</code>. Při psaní SQL vždy uvádějte schéma explicitně: <code>judo.tournament</code>.</p>
+    </section>
+
+    <footer>
+      <p>Hajime – Datové schéma &nbsp;|&nbsp; Vygenerováno ze zdrojového kódu: 2026-05-31</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
